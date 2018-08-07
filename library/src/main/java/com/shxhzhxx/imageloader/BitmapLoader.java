@@ -1,4 +1,4 @@
-package com.shxhzhxx.library;
+package com.shxhzhxx.imageloader;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -12,6 +12,9 @@ import android.support.annotation.RequiresApi;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.LruCache;
+
+import com.shxhzhxx.urlloader.MultiObserverTaskManager;
+import com.shxhzhxx.urlloader.UrlLoader;
 
 import java.io.File;
 import java.io.IOException;

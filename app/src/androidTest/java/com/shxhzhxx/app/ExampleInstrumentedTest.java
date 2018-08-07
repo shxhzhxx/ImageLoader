@@ -1,4 +1,4 @@
-package com.shxhzhxx.imageloader;
+package com.shxhzhxx.app;
 
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;

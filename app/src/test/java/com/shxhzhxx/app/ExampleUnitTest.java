@@ -1,4 +1,4 @@
-package com.shxhzhxx.imageloader;
+package com.shxhzhxx.app;
 
 import org.junit.Test;
 

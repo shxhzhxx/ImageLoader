@@ -1,4 +1,4 @@
-package com.shxhzhxx.library;
+package com.shxhzhxx.imageloader;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -8,6 +8,9 @@ import android.support.annotation.MainThread;
 import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.widget.ImageView;
+
+import com.shxhzhxx.urlloader.MultiObserverTaskManager;
+import com.shxhzhxx.urlloader.UrlLoader;
 
 import java.io.File;
 

@@ -1,12 +1,13 @@
-package com.shxhzhxx.imageloader;
+package com.shxhzhxx.app;
 
+import android.os.Build;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 
-import com.shxhzhxx.library.ImageLoader;
+import com.shxhzhxx.imageloader.ImageLoader;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
     private static final String TAG = "MainActivity";
@@ -27,15 +28,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void onClick(View v) {
         Log.d(TAG, "onClick");
 
-        withImageLoader(URL);
-    }
-
-    private void withImageLoader(String url) {
-//        ImageLoader.getInstance().getUrlLoader().clearCache(url);
-//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-//            ImageLoader.getInstance().getBitmapLoader().clearMemCache();
-//        }
-        ImageLoader.getInstance().load(url).withoutClear().callback(new ImageLoader.Callback() {
+        ImageLoader.getInstance().getUrlLoader().clearCache(URL);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            ImageLoader.getInstance().getBitmapLoader().clearMemCache();
+        }
+        ImageLoader.getInstance().load(URL).withoutClear().callback(new ImageLoader.Callback() {
             @Override
             public void onComplete() {
                 Log.d(TAG, "onComplete");
@@ -52,5 +49,4 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
         }).into(iv);
     }
-
 }
