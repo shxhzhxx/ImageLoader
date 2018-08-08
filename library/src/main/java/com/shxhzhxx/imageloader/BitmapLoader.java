@@ -201,7 +201,7 @@ public class BitmapLoader extends MultiObserverTaskManager<BitmapLoader.Progress
     public void trimMemory(boolean resizeCache) {
         Log.d(TAG, "trimMemory  resizeCache:" + resizeCache);
         int size = mMemoryCache.size();
-        if (size < 2) // can't be smaller 1
+        if (size < 2) // can't be smaller than 1
             return;
         if (resizeCache && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             mMemoryCache.resize(size / 2);

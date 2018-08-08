@@ -18,7 +18,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        ImageLoader.init(this);
 
         iv = findViewById(R.id.iv);
         iv.setOnClickListener(this);
@@ -28,10 +27,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void onClick(View v) {
         Log.d(TAG, "onClick");
 
-        ImageLoader.getInstance().getUrlLoader().clearCache(URL);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-            ImageLoader.getInstance().getBitmapLoader().clearMemCache();
-        }
+//        ImageLoader.getInstance().getUrlLoader().clearCache(URL);
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+//            ImageLoader.getInstance().getBitmapLoader().clearMemCache();
+//        }
         ImageLoader.getInstance().load(URL).withoutClear().callback(new ImageLoader.Callback() {
             @Override
             public void onComplete() {
@@ -48,5 +47,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 Log.d(TAG, "onCanceled");
             }
         }).into(iv);
+        ImageLoader.getInstance().load("").into(iv);
     }
 }
