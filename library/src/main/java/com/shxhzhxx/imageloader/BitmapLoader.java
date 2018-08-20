@@ -49,7 +49,7 @@ public class BitmapLoader extends MultiObserverTaskManager<BitmapLoader.Progress
 
 
     @Nullable
-    private static Bitmap loadBitmap(File file, int width, int height) {
+    public static Bitmap loadBitmap(File file, int width, int height) {
         if (height <= 0 && width <= 0) {
             Log.e(TAG, "load bitmap without compress :" + file.getAbsolutePath());
         }
@@ -78,7 +78,7 @@ public class BitmapLoader extends MultiObserverTaskManager<BitmapLoader.Progress
     }
 
     @Nullable
-    private static Bitmap loadBitmapCrop(File file, int width, int height) {
+    public static Bitmap loadBitmapCrop(File file, int width, int height) {
         if (width <= 0 || height <= 0) {
             Log.e(TAG, "loadBitmapCrop: crop need explicit width and height");
             return loadBitmap(file, width, height);
