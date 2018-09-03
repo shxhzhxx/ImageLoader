@@ -131,25 +131,24 @@ public class BitmapLoader extends MultiObserverTaskManager<BitmapLoader.Progress
     }
 
     @MainThread
-    private String getKey(String url, int width, int height, int config) {
-        return mUrlLoader.md5(mUrlLoader.md5(mUrlLoader.md5(mUrlLoader.md5(url) + width) + height) + (config & CONFIG_MASK));
-    }
-
-    @MainThread
-    private String getKey(File file, int width, int height, int config) {
-        return mUrlLoader.md5(mUrlLoader.md5(mUrlLoader.md5(mUrlLoader.md5(file.getAbsolutePath()) + width) + height) + (config & CONFIG_MASK));
+    private String getKey(String path, int width, int height, int config) {
+        return mUrlLoader.md5(mUrlLoader.md5(mUrlLoader.md5(mUrlLoader.md5(path) + width) + height) + (config & CONFIG_MASK));
     }
 
     public UrlLoader getUrlLoader() {
         return mUrlLoader;
     }
 
-    public int load(final String url, @Nullable String tag, final int width, final int height, final int config, ProgressObserver observer) {
-        if (TextUtils.isEmpty(url) || width < 0 || height < 0) {
+    public int load(final String path, @Nullable String tag, final int width, final int height, final int config, ProgressObserver observer) {
+        if (TextUtils.isEmpty(path) || width < 0 || height < 0) {
             Log.e(TAG, TAG + ".load: invalid params");
             return -1;
         }
-        String key = getKey(url, width, height, config);
+        File file = new File(path);
+        if (file.exists()) {
+            return load(file, tag, width, height, config, observer);
+        }
+        String key = getKey(path, width, height, config);
         Bitmap bitmap = mMemoryCache.get(key);
         if (bitmap != null) {
             if (observer != null)
@@ -159,13 +158,13 @@ public class BitmapLoader extends MultiObserverTaskManager<BitmapLoader.Progress
         return start(key, tag, observer, new TaskBuilder() {
             @Override
             public Task build() {
-                return new WorkThread(url, width, height, config);
+                return new WorkThread(path, width, height, config);
             }
         });
     }
 
-    public int load(String url, int width, int height, int config, ProgressObserver observer) {
-        return load(url, null, width, height, config, observer);
+    public int load(String path, int width, int height, int config, ProgressObserver observer) {
+        return load(path, null, width, height, config, observer);
     }
 
     public int load(final File file, @Nullable String tag, final int width, final int height, final int config, ProgressObserver observer) {
@@ -173,7 +172,7 @@ public class BitmapLoader extends MultiObserverTaskManager<BitmapLoader.Progress
             Log.e(TAG, TAG + ".load: invalid params");
             return -1;
         }
-        String key = getKey(file, width, height, config);
+        String key = getKey(file.getAbsolutePath(), width, height, config);
         Bitmap bitmap = mMemoryCache.get(key);
         if (bitmap != null) {
             if (observer != null)
@@ -256,7 +255,7 @@ public class BitmapLoader extends MultiObserverTaskManager<BitmapLoader.Progress
         }
 
         WorkThread(File file, int width, int height, int config) {
-            super(BitmapLoader.this.getKey(file, width, height, config));
+            super(BitmapLoader.this.getKey(file.getAbsolutePath(), width, height, config));
             mFile = file;
             mWidth = width;
             mHeight = height;

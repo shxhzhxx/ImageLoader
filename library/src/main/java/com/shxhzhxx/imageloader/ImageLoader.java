@@ -55,11 +55,11 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
     public class Builder {
         private Callback mCallback = null;
         private int mWidth = 0, mHeight = 0, mConfig = 0;
-        private String mUrl = null, mTag = null;
+        private String mPath = null, mTag = null;
         private File mFile = null;
 
-        Builder(String url) {
-            mUrl = url;
+        Builder(String path) {
+            mPath = path;
         }
 
         Builder(File file) {
@@ -103,7 +103,7 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
         }
 
         boolean checkParams() {
-            return !TextUtils.isEmpty(mUrl) || (mFile != null && mFile.exists());
+            return !TextUtils.isEmpty(mPath) || (mFile != null && mFile.exists());
         }
 
         public int into(ImageView view) {
@@ -127,8 +127,8 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
         return mBitmapLoader.getUrlLoader();
     }
 
-    public Builder load(String url) {
-        return new Builder(url);
+    public Builder load(String path) {
+        return new Builder(path);
     }
 
     public Builder load(File file) {
@@ -153,14 +153,14 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
         private int mCountdown = 20;
         private volatile int mId = -1;
         private volatile boolean mSuccess = false, mLoaded = false;
-        private final String mUrl;
+        private final String mPath;
         private File mFile;
         private int mConfig, mWidth, mHeight;
 
         WorkThread(String key, ImageView view, Builder builder) {
             super(key);
             mView = view;
-            mUrl = builder.mUrl;
+            mPath = builder.mPath;
             mFile = builder.mFile;
             mConfig = builder.mConfig;
             mWidth = builder.mWidth;
@@ -239,7 +239,7 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
                     if (mFile != null)
                         mId = mBitmapLoader.load(mFile, mWidth, mHeight, mConfig, observer);
                     else
-                        mId = mBitmapLoader.load(mUrl, mWidth, mHeight, mConfig, observer);
+                        mId = mBitmapLoader.load(mPath, mWidth, mHeight, mConfig, observer);
                 }
             });
             synchronized (WorkThread.this) {
