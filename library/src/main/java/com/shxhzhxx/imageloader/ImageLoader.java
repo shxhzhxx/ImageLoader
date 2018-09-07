@@ -2,6 +2,7 @@ package com.shxhzhxx.imageloader;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.annotation.MainThread;
@@ -39,7 +40,18 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
      * With this configuration, ImageLoader will wait 3200 milliseconds.
      */
     public static final int CONFIG_WAIT_VIEW_MEASURE = 1 << 16;
+
+    /**
+     * By default,ImageLoader will clear current picture of the view at start.
+     * Set this configuration to forbid this.
+     */
     public static final int CONFIG_LOAD_WITHOUT_CLEAR = 1 << 17;
+
+    /**
+     * By default,ImageLoader will not do anything about view when failed or canceled.
+     * With this configuration, ImageLoader will call view's {@link ImageView#setImageDrawable(Drawable)} with null parameter
+     */
+    public static final int CONFIG_CLEAR_WHEN_FAILED = 1 << 18;
 
     private static volatile ImageLoader mInstance;
 
@@ -97,6 +109,11 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
             return this;
         }
 
+        public Builder clearWhenFailed() {
+            mConfig = mConfig | CONFIG_CLEAR_WHEN_FAILED;
+            return this;
+        }
+
         public Builder callback(Callback callback) {
             mCallback = callback;
             return this;
@@ -138,8 +155,7 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
     @MainThread
     private int execute(final ImageView view, final Builder builder) {
         final String key = String.valueOf(view.hashCode());
-        if (isRunning(key))
-            cancel(key);
+        cancel(key);
         return start(key, builder.mTag, builder.mCallback, new TaskBuilder() {
             @Override
             public Task build() {
@@ -152,7 +168,8 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
         private final ImageView mView;
         private int mCountdown = 20;
         private volatile int mId = -1;
-        private volatile boolean mSuccess = false, mLoaded = false;
+        private volatile boolean mLoaded = false;
+        private volatile Bitmap mBitmap = null;
         private final String mPath;
         private File mFile;
         private int mConfig, mWidth, mHeight;
@@ -177,12 +194,15 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
 
         @Override
         protected void onCanceled() {
+            if ((mConfig & CONFIG_CLEAR_WHEN_FAILED) != 0) {
+                mView.setImageDrawable(null);
+            }
+            if (mId >= 0)
+                mBitmapLoader.cancel(mId);
             for (Callback observer : getObservers()) {
                 if (observer != null)
                     observer.onCanceled();
             }
-            if (mId >= 0)
-                mBitmapLoader.cancel(mId);
         }
 
         @Override
@@ -210,11 +230,12 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {
+                    if (isCanceled())
+                        return;
                     BitmapLoader.ProgressObserver observer = new BitmapLoader.ProgressObserver() {
                         @Override
                         public void onComplete(Bitmap bitmap) {
-                            mView.setImageBitmap(bitmap);
-                            mSuccess = true;
+                            mBitmap = bitmap;
                             onLoaded();
                         }
 
@@ -252,10 +273,11 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
             }
             if (isCanceled())
                 return;
-            if (mSuccess) {
+            if (mBitmap != null) {
                 setPostResult(new Runnable() {
                     @Override
                     public void run() {
+                        mView.setImageBitmap(mBitmap);
                         for (Callback callback : getObservers()) {
                             if (callback != null)
                                 callback.onComplete();
@@ -266,6 +288,9 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
                 setPostResult(new Runnable() {
                     @Override
                     public void run() {
+                        if ((mConfig & CONFIG_CLEAR_WHEN_FAILED) != 0) {
+                            mView.setImageDrawable(null);
+                        }
                         for (Callback callback : getObservers()) {
                             if (callback != null)
                                 callback.onFailed();
