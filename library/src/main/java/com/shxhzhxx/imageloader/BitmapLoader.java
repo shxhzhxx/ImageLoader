@@ -142,6 +142,8 @@ public class BitmapLoader extends MultiObserverTaskManager<BitmapLoader.Progress
     public int load(final String path, @Nullable String tag, final int width, final int height, final int config, ProgressObserver observer) {
         if (TextUtils.isEmpty(path) || width < 0 || height < 0) {
             Log.e(TAG, TAG + ".load: invalid params");
+            if (observer != null)
+                observer.onFailed();
             return -1;
         }
         File file = new File(path);
@@ -155,12 +157,16 @@ public class BitmapLoader extends MultiObserverTaskManager<BitmapLoader.Progress
                 observer.onComplete(bitmap);
             return -2;
         }
-        return start(key, tag, observer, new TaskBuilder() {
+        int id = start(key, tag, observer, new TaskBuilder() {
             @Override
             public Task build() {
                 return new WorkThread(path, width, height, config);
             }
         });
+        if (id < 0 && observer != null) {
+            observer.onFailed();
+        }
+        return id;
     }
 
     public int load(String path, int width, int height, int config, ProgressObserver observer) {
@@ -170,6 +176,8 @@ public class BitmapLoader extends MultiObserverTaskManager<BitmapLoader.Progress
     public int load(final File file, @Nullable String tag, final int width, final int height, final int config, ProgressObserver observer) {
         if (file == null || !file.exists() || width < 0 || height < 0) {
             Log.e(TAG, TAG + ".load: invalid params");
+            if (observer != null)
+                observer.onFailed();
             return -1;
         }
         String key = getKey(file.getAbsolutePath(), width, height, config);
@@ -179,12 +187,16 @@ public class BitmapLoader extends MultiObserverTaskManager<BitmapLoader.Progress
                 observer.onComplete(bitmap);
             return -2;
         }
-        return start(key, tag, observer, new TaskBuilder() {
+        int id = start(key, tag, observer, new TaskBuilder() {
             @Override
             public Task build() {
                 return new WorkThread(file, width, height, config);
             }
         });
+        if (id < 0 && observer != null) {
+            observer.onFailed();
+        }
+        return id;
     }
 
     public int load(final File file, final int width, final int height, final int config, ProgressObserver observer) {
