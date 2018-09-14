@@ -156,12 +156,16 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
     private int execute(final ImageView view, final Builder builder) {
         final String key = String.valueOf(view.hashCode());
         cancel(key);
-        return start(key, builder.mTag, builder.mCallback, new TaskBuilder() {
+        int id = start(key, builder.mTag, builder.mCallback, new TaskBuilder() {
             @Override
             public Task build() {
                 return new WorkThread(key, view, builder);
             }
         });
+        if (id < 0 && builder.mCallback != null) {
+            builder.mCallback.onFailed();
+        }
+        return id;
     }
 
     private class WorkThread extends Task {
