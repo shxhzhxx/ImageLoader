@@ -5,7 +5,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.BitmapRegionDecoder;
 import android.graphics.Rect;
 import android.os.Build;
-import android.support.annotation.IntRange;
 import android.support.annotation.MainThread;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -113,10 +112,29 @@ public class BitmapLoader extends MultiObserverTaskManager<BitmapLoader.Progress
     private UrlLoader mUrlLoader;
     private LruCache<String, Bitmap> mMemoryCache;
 
+
+    public enum CacheSize {
+        JUMBO, LARGE, REGULAR;
+        private final static int maxMemory = (int) (Runtime.getRuntime().maxMemory() / MEM_SCALE);
+
+        private int size() {
+            switch (this) {
+                case JUMBO:
+                    return Math.max(1, maxMemory / 2);
+                case LARGE:
+                    return Math.max(1, maxMemory / 4);
+                case REGULAR:
+                    return Math.max(1, maxMemory / 8);
+                default:
+                    return Math.max(1, maxMemory / 8);
+            }
+        }
+    }
+
     public BitmapLoader(@NonNull File cachePath) {
         super(5);
         mUrlLoader = new UrlLoader(cachePath, 50 * 1024 * 1024, 5);
-        mMemoryCache = new LruCache<String, Bitmap>((int) (Runtime.getRuntime().maxMemory() / (MEM_SCALE * 8))) {
+        mMemoryCache = new LruCache<String, Bitmap>(CacheSize.REGULAR.size()) {
             @Override
             protected int sizeOf(String key, Bitmap value) {
                 return value.getByteCount() / MEM_SCALE;
@@ -205,8 +223,8 @@ public class BitmapLoader extends MultiObserverTaskManager<BitmapLoader.Progress
     }
 
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-    public void resizeCache(@IntRange(from = 1) int size){
-        mMemoryCache.resize(size);
+    public void resizeCache(CacheSize cacheSize) {
+        mMemoryCache.resize(cacheSize.size());
     }
 
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
