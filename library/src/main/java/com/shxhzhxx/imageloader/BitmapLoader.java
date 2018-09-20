@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.BitmapRegionDecoder;
 import android.graphics.Rect;
 import android.os.Build;
+import android.support.annotation.IntRange;
 import android.support.annotation.MainThread;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -201,6 +202,11 @@ public class BitmapLoader extends MultiObserverTaskManager<BitmapLoader.Progress
 
     public int load(final File file, final int width, final int height, final int config, ProgressObserver observer) {
         return load(file, null, width, height, config, observer);
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    public void resizeCache(@IntRange(from = 1) int size){
+        mMemoryCache.resize(size);
     }
 
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)

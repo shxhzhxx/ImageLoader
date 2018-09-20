@@ -28,7 +28,7 @@ android {
 
 dependencies {
     implementation 'com.android.support:support-annotations:27.1.1'
-    implementation 'com.github.shxhzhxx:UrlLoader:1.2.0'
+    implementation 'com.github.shxhzhxx:UrlLoader:1.2.1'
 }
 
 // 指定编码
