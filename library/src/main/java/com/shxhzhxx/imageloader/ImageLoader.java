@@ -29,7 +29,7 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
     }
 
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
-    public class BlurTransformation implements Transformation {
+    public static class BlurTransformation implements Transformation {
         private float radius, inSampleSize;
 
         public BlurTransformation() {

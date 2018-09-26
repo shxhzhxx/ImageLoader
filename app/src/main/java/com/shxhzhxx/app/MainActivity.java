@@ -2,6 +2,7 @@ package com.shxhzhxx.app;
 
 import android.os.Build;
 import android.os.Bundle;
+import android.support.annotation.RequiresApi;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -23,6 +24,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         iv.setOnClickListener(this);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
     @Override
     public void onClick(View v) {
         Log.d(TAG, "onClick");
@@ -31,7 +33,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 //        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
 //            ImageLoader.getInstance().getBitmapLoader().clearMemCache();
 //        }
-        ImageLoader.getInstance().load(URL).withoutClear().callback(new ImageLoader.Callback() {
+        ImageLoader.getInstance().load(URL).transformation(new ImageLoader.BlurTransformation()).withoutClear().callback(new ImageLoader.Callback() {
             @Override
             public void onComplete() {
                 Log.d(TAG, "onComplete");
