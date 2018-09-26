@@ -3,11 +3,17 @@ package com.shxhzhxx.imageloader;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.renderscript.Allocation;
+import android.renderscript.Element;
+import android.renderscript.RenderScript;
+import android.renderscript.ScriptIntrinsicBlur;
+import android.support.annotation.FloatRange;
 import android.support.annotation.MainThread;
 import android.support.annotation.NonNull;
-import android.text.TextUtils;
+import android.support.annotation.RequiresApi;
 import android.widget.ImageView;
 
 import com.shxhzhxx.urlloader.MultiObserverTaskManager;
@@ -17,6 +23,53 @@ import java.io.File;
 
 public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> {
     private static final String TAG = "ImageLoader";
+
+    public interface Transformation {
+        Bitmap transform(Context context, Bitmap bitmap);
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
+    public class BlurTransformation implements Transformation {
+        private float radius, inSampleSize;
+
+        public BlurTransformation() {
+            this(16, 2);
+        }
+
+        /**
+         * @param radius       Gaussian blur radius, no more than 25 (limits by android api).
+         * @param inSampleSize Since the radius is no more than 25, it may be necessary to discard some of the pixels by sampling
+         *                     to achieve a higher degree of blur, especially for high resolution pictures.
+         */
+        public BlurTransformation(@FloatRange(from = 1, to = 25) float radius, @FloatRange(from = 1) float inSampleSize) {
+            this.radius = radius;
+            this.inSampleSize = inSampleSize;
+        }
+
+        /**
+         * <a href="https://developer.android.com/guide/topics/renderscript/compute">RenderScript</a> developer guide.</p>
+         */
+        @Override
+        public Bitmap transform(Context context, Bitmap bitmap) {
+            RenderScript rs = RenderScript.create(context); //potentially long-running operation
+            int width = Math.round(bitmap.getWidth() / inSampleSize);
+            int height = Math.round(bitmap.getHeight() / inSampleSize);
+
+            Bitmap inputBitmap = Bitmap.createScaledBitmap(bitmap, width, height, false);
+            Bitmap outputBitmap = Bitmap.createBitmap(inputBitmap);
+
+            ScriptIntrinsicBlur intrinsicBlur = ScriptIntrinsicBlur.create(rs, Element.U8_4(rs));
+            Allocation tmpIn = Allocation.createFromBitmap(rs, inputBitmap);
+            Allocation tmpOut = Allocation.createFromBitmap(rs, outputBitmap);
+
+            intrinsicBlur.setRadius(radius);
+            intrinsicBlur.setInput(tmpIn);
+            intrinsicBlur.forEach(tmpOut);
+            tmpOut.copyTo(outputBitmap);
+            rs.destroy();
+            return outputBitmap;
+        }
+    }
 
     public abstract static class Callback {
 
@@ -69,6 +122,7 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
         private int mWidth = 0, mHeight = 0, mConfig = 0;
         private String mPath = null, mTag = null;
         private File mFile = null;
+        private Transformation mTransformation = null;
 
         Builder(String path) {
             mPath = path;
@@ -119,8 +173,9 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
             return this;
         }
 
-        boolean checkParams() {
-            return !TextUtils.isEmpty(mPath) || (mFile != null && mFile.exists());
+        public Builder transformation(Transformation transformation) {
+            mTransformation = transformation;
+            return this;
         }
 
         public int into(ImageView view) {
@@ -170,6 +225,7 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
 
     private class WorkThread extends Task {
         private final ImageView mView;
+        private final Transformation mTransformation;
         private int mCountdown = 20;
         private volatile int mId = -1;
         private volatile boolean mLoaded = false;
@@ -181,6 +237,7 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
         WorkThread(String key, ImageView view, Builder builder) {
             super(key);
             mView = view;
+            mTransformation = builder.mTransformation;
             mPath = builder.mPath;
             mFile = builder.mFile;
             mConfig = builder.mConfig;
@@ -277,6 +334,9 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
             }
             if (isCanceled())
                 return;
+            if (mBitmap != null && mTransformation != null) {
+                mBitmap = mTransformation.transform(mView.getContext(), mBitmap);
+            }
             if (mBitmap != null) {
                 setPostResult(new Runnable() {
                     @Override
