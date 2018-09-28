@@ -335,6 +335,7 @@ public class ImageLoader extends MultiObserverTaskManager<ImageLoader.Callback> 
             if (isCanceled())
                 return;
             if (mBitmap != null && mTransformation != null) {
+                //noinspection NonAtomicOperationOnVolatileField
                 mBitmap = mTransformation.transform(mView.getContext(), mBitmap);
             }
             if (mBitmap != null) {

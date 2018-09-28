@@ -5,10 +5,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.BitmapRegionDecoder;
 import android.graphics.Rect;
 import android.os.Build;
-import androidx.annotation.MainThread;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.LruCache;
@@ -18,6 +14,11 @@ import com.shxhzhxx.urlloader.UrlLoader;
 
 import java.io.File;
 import java.io.IOException;
+
+import androidx.annotation.MainThread;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 
 public class BitmapLoader extends MultiObserverTaskManager<BitmapLoader.ProgressObserver> {
     private static final String TAG = "BitmapLoader";
