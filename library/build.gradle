@@ -3,17 +3,17 @@ apply plugin: 'com.github.dcendents.android-maven'
 group='com.github.shxhzhxx'
 
 android {
-    compileSdkVersion 27
+    compileSdkVersion 28
 
 
 
     defaultConfig {
         minSdkVersion 14
-        targetSdkVersion 27
+        targetSdkVersion 28
         versionCode 1
         versionName "1.0"
 
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
     }
 
@@ -27,8 +27,7 @@ android {
 }
 
 dependencies {
-    implementation 'com.android.support:support-annotations:27.1.1'
-    implementation 'com.github.shxhzhxx:UrlLoader:1.2.1'
+    implementation 'com.github.shxhzhxx:UrlLoader:1.2.3'
 }
 
 // 指定编码
