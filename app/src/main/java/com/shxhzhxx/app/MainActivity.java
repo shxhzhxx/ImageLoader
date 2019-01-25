@@ -8,7 +8,6 @@ import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 
-import com.shxhzhxx.imageloader.ImageLoader;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
     private static final String TAG = "MainActivity";
@@ -33,22 +32,23 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 //        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
 //            ImageLoader.getInstance().getBitmapLoader().clearMemCache();
 //        }
-        ImageLoader.getInstance().load(URL).transformation(new ImageLoader.BlurTransformation()).withoutClear().callback(new ImageLoader.Callback() {
-            @Override
-            public void onComplete() {
-                Log.d(TAG, "onComplete");
-            }
+//        ImageLoader.getInstance().load(URL).transformation(new ImageLoader.BlurTransformation()).withoutClear().callback(new ImageLoader.Callback() {
+//            @Override
+//            public void onComplete() {
+//                Log.d(TAG, "onComplete");
+//            }
+//
+//            @Override
+//            public void onFailed() {
+//                Log.d(TAG, "onFailed");
+//            }
+//
+//            @Override
+//            public void onCanceled() {
+//                Log.d(TAG, "onCanceled");
+//            }
+//        }).into(iv);
+//        ImageLoader.getInstance().load("").into(iv);
 
-            @Override
-            public void onFailed() {
-                Log.d(TAG, "onFailed");
-            }
-
-            @Override
-            public void onCanceled() {
-                Log.d(TAG, "onCanceled");
-            }
-        }).into(iv);
-        ImageLoader.getInstance().load("").into(iv);
     }
 }

@@ -27,7 +27,8 @@ android {
 }
 
 dependencies {
-    implementation 'com.github.shxhzhxx:UrlLoader:1.2.3'
+    implementation 'com.github.shxhzhxx:UrlLoader:2.0.3'
+    implementation 'androidx.appcompat:appcompat:1.0.2'
 }
 
 // 指定编码
