@@ -23,31 +23,28 @@ class Callback(
         val onCanceled: (() -> Unit)? = null
 )
 
-class BitmapLoader(fileCachePath: File) : TaskManager<Callback>() {
+class BitmapLoader(fileCachePath: File) : TaskManager<Callback, Bitmap>() {
     val urlLoader = UrlLoader(fileCachePath, 50 * 1024 * 1024)
     private val memoryCache = object : LruCache<Params, Bitmap>((Math.max(1, Runtime.getRuntime().maxMemory() / MEM_SCALE / 8)).toInt()) {
         override fun sizeOf(key: Params, value: Bitmap) = value.byteCount / MEM_SCALE
     }
 
     @JvmOverloads
-    fun load(path: String, @IntRange(from = 0) width: Int = 0, @IntRange(from = 0) height: Int = 0, centerCrop: Boolean = true, tag: Any? = null,
-             onComplete: ((Bitmap) -> Unit)? = null,
-             onFailed: (() -> Unit)? = null,
-             onCanceled: (() -> Unit)? = null): Int {
+    fun asyncLoad(path: String, @IntRange(from = 0) width: Int = 0, @IntRange(from = 0) height: Int = 0, centerCrop: Boolean = true, tag: Any? = null,
+                  onComplete: ((Bitmap) -> Unit)? = null,
+                  onFailed: (() -> Unit)? = null,
+                  onCanceled: (() -> Unit)? = null): Int {
         val params = Params(path, width, height, centerCrop)
-        return start(params, { Worker(params) }, tag, Callback(onComplete, onFailed, onCanceled)).also { id ->
+        return asyncStart(params, { Worker(params) }, tag, Callback(onComplete, onFailed, onCanceled)).also { id ->
             if (id < 0) {
                 onFailed?.invoke()
             }
         }
     }
 
-    fun syncLoad(path: String, @IntRange(from = 0) width: Int = 0, @IntRange(from = 0) height: Int = 0, centerCrop: Boolean = true): Bitmap? {
+    fun syncLoad(path: String, canceled: () -> Boolean, @IntRange(from = 0) width: Int = 0, @IntRange(from = 0) height: Int = 0, centerCrop: Boolean = true): Bitmap? {
         val params = Params(path, width, height, centerCrop)
-        return memoryCache[params] ?: kotlin.run {
-            val f = File(path)
-            return@run if (f.exists()) f else urlLoader.syncLoad(path)
-        }?.decodeBitmap(params)?.also { memoryCache.put(params, it) }
+        return syncStart(params, { Worker(params) }, canceled)
     }
 
     @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
@@ -69,16 +66,21 @@ class BitmapLoader(fileCachePath: File) : TaskManager<Callback>() {
         }
     }
 
-    internal inner class Worker(private val params: Params) : Task(params) {
-        override fun doInBackground() {
+    private inner class Worker(private val params: Params) : Task(params) {
+        override fun doInBackground(): Bitmap? {
             if (isCanceled)
-                return
-            val bitmap = syncLoad(params.path, params.width, params.height, params.centerCrop)
+                return null
+            val bitmap = memoryCache[params] ?: kotlin.run {
+                val f = File(params.path)
+                return@run if (f.exists()) f else urlLoader.syncLoad(params.path, { isCanceled })
+            }?.decodeBitmap(params)?.also { memoryCache.put(params, it) }
+
             postResult = if (bitmap != null) Runnable {
                 observers.forEach { it?.onComplete?.invoke(bitmap) }
             } else Runnable {
                 observers.forEach { it?.onFailed?.invoke() }
             }
+            return bitmap
         }
 
         override fun onObserverUnregistered(observer: Callback?) {
@@ -100,22 +102,26 @@ private fun File.decodeBitmap(params: Params): Bitmap? {
     }
     val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeFile(absolutePath, opts)
-    val (height, width) = listOf(params.height, params.width).map { return@map if (it <= 0) Int.MAX_VALUE else it }
-    val (out, dst) = listOf(opts.outHeight to height, opts.outWidth to width)
-            .run { return@run if (centerCrop) minBy { it.first / it.second } else maxBy { it.first / it.second } }!!
-    opts.inSampleSize = out / dst
-    opts.inDensity = out
-    opts.inTargetDensity = dst * opts.inSampleSize
-    opts.inScaled = true
+    val (out, dst) = listOf(opts.outHeight to params.height, opts.outWidth to params.width).filter { it.second > 0 }
+            .run { return@run if (centerCrop) minBy { it.first.toFloat() / it.second } else maxBy { it.first.toFloat() / it.second } }
+            ?: 0 to 0
     opts.inJustDecodeBounds = false
 
-    return if (!centerCrop) BitmapFactory.decodeFile(absolutePath, opts) else
+    return if (!centerCrop) BitmapFactory.decodeFile(absolutePath, opts.apply {
+        inDensity = out
+        inTargetDensity = dst
+        inScaled = true
+    }) else
         try {
-            BitmapRegionDecoder.newInstance(absolutePath, !canWrite()).decodeRegion(Rect(
-                    opts.outWidth / 2 - width * opts.inSampleSize / 2,
-                    opts.outHeight / 2 - height * opts.inSampleSize / 2,
-                    opts.outWidth / 2 + width * opts.inSampleSize / 2,
-                    opts.outHeight / 2 + height * opts.inSampleSize / 2), opts)
+            opts.inSampleSize = out / dst
+            val inSampleSize = out.toFloat() / dst
+            val bitmap = BitmapRegionDecoder.newInstance(absolutePath, !canWrite()).decodeRegion(Rect(
+                    (opts.outWidth / 2 - params.width * inSampleSize / 2).toInt(),
+                    (opts.outHeight / 2 - params.height * inSampleSize / 2).toInt(),
+                    (opts.outWidth / 2 + params.width * inSampleSize / 2).toInt(),
+                    (opts.outHeight / 2 + params.height * inSampleSize / 2).toInt()), opts)
+                    ?: return null
+            Bitmap.createScaledBitmap(bitmap, params.width, params.height, true)
         } catch (e: IOException) {
             null
         }

@@ -7,9 +7,11 @@ import android.renderscript.Allocation
 import android.renderscript.Element
 import android.renderscript.RenderScript
 import android.renderscript.ScriptIntrinsicBlur
+import android.util.Log
 import android.view.View
 import android.widget.ImageView
 import androidx.annotation.RequiresApi
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleObserver
 import androidx.lifecycle.OnLifecycleEvent
@@ -52,7 +54,7 @@ fun blurTransformation(context: Context, bitmap: Bitmap, radius: Float = 16f, in
     return outputBitmap
 }
 
-class ImageLoader(fileCachePath: File) : TaskManager<ICallback>() {
+class ImageLoader(fileCachePath: File) : TaskManager<ICallback, Unit>() {
     val bitmapLoader = BitmapLoader(fileCachePath)
     private val lifecycleSet = HashSet<Lifecycle>()
 
@@ -74,25 +76,26 @@ class ImageLoader(fileCachePath: File) : TaskManager<ICallback>() {
             onFailed?.invoke()
             return -1
         }
-        if (lifecycle != null && !lifecycleSet.contains(lifecycle)) {
-            lifecycleSet.add(lifecycle)
-            lifecycle.addObserver(object : LifecycleObserver {
+        val lc = lifecycle ?: iv.context.let { if (it is FragmentActivity) it.lifecycle else null }
+        if (lc != null && !lifecycleSet.contains(lc)) {
+            lifecycleSet.add(lc)
+            lc.addObserver(object : LifecycleObserver {
                 @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
                 fun onDestroy() {
-                    lifecycleSet.remove(lifecycle)
-                    unregisterByTag(lifecycle)
+                    lifecycleSet.remove(lc)
+                    unregisterByTag(lc)
                 }
             })
         }
-        return start(iv, { Worker(iv, path, centerCrop, width, height, waitForLayout, error, transformation) }
-                , lifecycle, ICallback(onComplete, onFailed, onCanceled)).also { id ->
+        return asyncStart(iv, { Worker(iv, path, centerCrop, width, height, waitForLayout, error, transformation) }
+                , lc, ICallback(onComplete, onFailed, onCanceled)).also { id ->
             if (id < 0) {
                 onFailed?.invoke()
             }
         }
     }
 
-    internal inner class Worker(
+    private inner class Worker(
             private val iv: ImageView,
             private val path: String,
             private val centerCrop: Boolean,
@@ -101,8 +104,15 @@ class ImageLoader(fileCachePath: File) : TaskManager<ICallback>() {
             private val waitForLayout: Boolean,
             private val error: Int?,
             private val transformation: ((Bitmap) -> Bitmap)?
-
     ) : Task(iv) {
+        override fun onCanceled() {
+            observers.forEach { it?.onCanceled?.invoke() }
+        }
+
+        override fun onObserverUnregistered(observer: ICallback?) {
+            observer?.onCanceled?.invoke()
+        }
+
         override fun doInBackground() {
             val (w, h) = when {
                 width != null || height != null -> (width ?: 0) to (height ?: 0)
@@ -114,7 +124,7 @@ class ImageLoader(fileCachePath: File) : TaskManager<ICallback>() {
                     iv.width to iv.height
                 }
             }
-            val bitmap = bitmapLoader.syncLoad(path, w, h, centerCrop)?.let {
+            val bitmap = bitmapLoader.syncLoad(path, { isCanceled }, w, h, centerCrop)?.let {
                 return@let transformation?.invoke(it) ?: it
             }
             postResult = if (bitmap != null) Runnable {
