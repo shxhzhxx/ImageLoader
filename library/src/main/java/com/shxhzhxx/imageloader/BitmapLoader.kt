@@ -72,8 +72,12 @@ class BitmapLoader(fileCachePath: File) : TaskManager<Callback, Bitmap>() {
                 return null
             val bitmap = memoryCache[params] ?: kotlin.run {
                 val f = File(params.path)
-                return@run if (f.exists()) f else urlLoader.syncLoad(params.path, { isCanceled })
-            }?.decodeBitmap(params)?.also { memoryCache.put(params, it) }
+                return@run if (f.exists()) f else urlLoader.syncLoad(params.path, { isCanceled || (allSyncCanceled && asyncObservers.isEmpty()) })
+            }?.decodeBitmap(params)?.also {
+                if (it.byteCount / MEM_SCALE < memoryCache.size() / 2) {
+                    memoryCache.put(params, it)
+                }
+            }
 
             postResult = if (bitmap != null) Runnable {
                 observers.forEach { it?.onComplete?.invoke(bitmap) }
@@ -106,20 +110,22 @@ private fun File.decodeBitmap(params: Params): Bitmap? {
             .run { return@run if (centerCrop) minBy { it.first.toFloat() / it.second } else maxBy { it.first.toFloat() / it.second } }
             ?: 0 to 0
     opts.inJustDecodeBounds = false
+    opts.inSampleSize = if (dst == 0) 0 else out / dst
 
-    return if (!centerCrop) BitmapFactory.decodeFile(absolutePath, opts.apply {
-        inDensity = out
-        inTargetDensity = dst
-        inScaled = true
-    }) else
+    return if (!centerCrop) BitmapFactory.decodeFile(absolutePath, opts)?.let { bitmap ->
+        val resizeFactor = listOf(params.width to bitmap.width, params.height to bitmap.height).filter { it.first > 0 && it.second > 0 }
+                .map { it.first.toFloat() / it.second }.min() ?: return@let bitmap
+        return@let if (resizeFactor == 1f) bitmap else {
+            Bitmap.createScaledBitmap(bitmap, (bitmap.width * resizeFactor).toInt(), (bitmap.height * resizeFactor).toInt(), true)
+        }
+    } else
         try {
-            opts.inSampleSize = out / dst
             val inSampleSize = out.toFloat() / dst
             val bitmap = BitmapRegionDecoder.newInstance(absolutePath, !canWrite()).decodeRegion(Rect(
-                    (opts.outWidth / 2 - params.width * inSampleSize / 2).toInt(),
-                    (opts.outHeight / 2 - params.height * inSampleSize / 2).toInt(),
-                    (opts.outWidth / 2 + params.width * inSampleSize / 2).toInt(),
-                    (opts.outHeight / 2 + params.height * inSampleSize / 2).toInt()), opts)
+                    ((opts.outWidth / 2 - params.width * inSampleSize / 2).toInt()),
+                    ((opts.outHeight / 2 - params.height * inSampleSize / 2).toInt()),
+                    ((opts.outWidth / 2 + params.width * inSampleSize / 2).toInt()),
+                    ((opts.outHeight / 2 + params.height * inSampleSize / 2).toInt())), opts)
                     ?: return null
             Bitmap.createScaledBitmap(bitmap, params.width, params.height, true)
         } catch (e: IOException) {

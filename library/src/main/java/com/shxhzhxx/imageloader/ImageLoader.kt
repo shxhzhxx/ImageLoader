@@ -16,6 +16,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleObserver
 import androidx.lifecycle.OnLifecycleEvent
 import com.shxhzhxx.urlloader.TaskManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import java.io.File
 
 
@@ -58,12 +61,13 @@ class ImageLoader(fileCachePath: File) : TaskManager<ICallback, Unit>() {
     val bitmapLoader = BitmapLoader(fileCachePath)
     private val lifecycleSet = HashSet<Lifecycle>()
 
-    fun load(iv: ImageView, path: String?, lifecycle: Lifecycle? = null,
+    fun load(iv: ImageView, path: String?,
+             lifecycle: Lifecycle? = iv.context.let { if (it is FragmentActivity) it.lifecycle else null },
              centerCrop: Boolean = true,
-             width: Int? = null,
-             height: Int? = null,
+             width: Int? = if (iv.isLaidOutCompat) iv.width else null,
+             height: Int? = if (iv.isLaidOutCompat) iv.height else null,
              waitForLayout: Boolean = false,
-             placeholder: Int? = null,
+             placeholder: Int? = 0,// pass 0 will clear current drawable before load
              error: Int? = null,
              transformation: ((Bitmap) -> Bitmap)? = null,
              onComplete: (() -> Unit)? = null,
@@ -76,19 +80,18 @@ class ImageLoader(fileCachePath: File) : TaskManager<ICallback, Unit>() {
             onFailed?.invoke()
             return -1
         }
-        val lc = lifecycle ?: iv.context.let { if (it is FragmentActivity) it.lifecycle else null }
-        if (lc != null && !lifecycleSet.contains(lc)) {
-            lifecycleSet.add(lc)
-            lc.addObserver(object : LifecycleObserver {
+        if (lifecycle != null && !lifecycleSet.contains(lifecycle)) {
+            lifecycleSet.add(lifecycle)
+            lifecycle.addObserver(object : LifecycleObserver {
                 @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
                 fun onDestroy() {
-                    lifecycleSet.remove(lc)
-                    unregisterByTag(lc)
+                    lifecycleSet.remove(lifecycle)
+                    unregisterByTag(lifecycle)
                 }
             })
         }
         return asyncStart(iv, { Worker(iv, path, centerCrop, width, height, waitForLayout, error, transformation) }
-                , lc, ICallback(onComplete, onFailed, onCanceled)).also { id ->
+                , lifecycle, ICallback(onComplete, onFailed, onCanceled)).also { id ->
             if (id < 0) {
                 onFailed?.invoke()
             }
@@ -116,13 +119,7 @@ class ImageLoader(fileCachePath: File) : TaskManager<ICallback, Unit>() {
         override fun doInBackground() {
             val (w, h) = when {
                 width != null || height != null -> (width ?: 0) to (height ?: 0)
-                else -> {
-                    var cnt = if (waitForLayout) 50 else 5
-                    while (!isViewLaidOut(iv) && cnt-- > 0) {
-                        Thread.sleep(10)
-                    }
-                    iv.width to iv.height
-                }
+                else -> runBlocking(Dispatchers.Main) { iv.waitForLaidOut(if (waitForLayout) 50 else 5) { it.width to it.height } }
             }
             val bitmap = bitmapLoader.syncLoad(path, { isCanceled }, w, h, centerCrop)?.let {
                 return@let transformation?.invoke(it) ?: it
@@ -139,5 +136,13 @@ class ImageLoader(fileCachePath: File) : TaskManager<ICallback, Unit>() {
     }
 }
 
-private fun isViewLaidOut(view: View) =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) view.isLaidOut else (view.width != 0 || view.height != 0)
+val View.isLaidOutCompat get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) isLaidOut else (width != 0 || height != 0)
+suspend fun <T> View.waitForLaidOut(times: Int = 5, action: (View) -> T): T {
+    repeat(times) {
+        if (isLaidOutCompat) {
+            return@repeat
+        }
+        delay(10)
+    }
+    return action.invoke(this)
+}
