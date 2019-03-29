@@ -1,5 +1,6 @@
 package com.shxhzhxx.imageloader
 
+import android.content.ContentResolver
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.Build
@@ -57,10 +58,11 @@ fun blurTransformation(context: Context, bitmap: Bitmap, radius: Float = 16f, in
     return outputBitmap
 }
 
-class ImageLoader(fileCachePath: File) : TaskManager<ICallback, Unit>() {
-    val bitmapLoader = BitmapLoader(fileCachePath)
+class ImageLoader(contentResolver: ContentResolver,fileCachePath: File) : TaskManager<ICallback, Unit>() {
+    val bitmapLoader = BitmapLoader(contentResolver,fileCachePath)
     private val lifecycleSet = HashSet<Lifecycle>()
 
+    @JvmOverloads
     fun load(iv: ImageView, path: String?,
              lifecycle: Lifecycle? = iv.context.let { if (it is FragmentActivity) it.lifecycle else null },
              centerCrop: Boolean = true,

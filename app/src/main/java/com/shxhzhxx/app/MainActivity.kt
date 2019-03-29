@@ -1,40 +1,42 @@
 package com.shxhzhxx.app
 
+import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
-import android.util.Log
-import android.view.View
-import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
+import com.blankj.utilcode.util.UriUtils
 import com.shxhzhxx.imageloader.ImageLoader
+import kotlinx.android.synthetic.main.activity_main.*
 
 
 private const val TAG = "MainActivity"
+const val u1 = "https://static.usasishu.com/image/2018/09/30/bg-index.jpg"
+const val u2 = "https://static.usasishu.com/image/2018/09/30/bg-china-map.png"
+const val u3 = "https://static.usasishu.com/image/2018/10/12/how_to_learn_banner.png"
+const val u4 = "https://static.usasishu.com/image/2018/10/12/time_plan_bg.png"
+const val u5 = "https://static.usasishu.com/image/2018/10/15/0001.png"
 
 class MainActivity : AppCompatActivity() {
+    private val loader by lazy { ImageLoader(contentResolver, cacheDir) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val iv1 = findViewById<ImageView>(R.id.iv1)
-        val iv2 = findViewById<ImageView>(R.id.iv2)
-        val iv3 = findViewById<ImageView>(R.id.iv3)
-        val iv4 = findViewById<ImageView>(R.id.iv4)
-        val iv5 = findViewById<ImageView>(R.id.iv5)
-        val u1 = "https://static.usasishu.com/image/2018/09/30/bg-index.jpg"
-        val u2 = "https://static.usasishu.com/image/2018/09/30/bg-china-map.png"
-        val u3 = "https://static.usasishu.com/image/2018/10/12/how_to_learn_banner.png"
-        val u4 = "https://static.usasishu.com/image/2018/10/12/time_plan_bg.png"
-        val u5 = "https://static.usasishu.com/image/2018/10/15/0001.png"
-        val loader = ImageLoader(cacheDir)
-        Log.d(TAG, "cores:${Runtime.getRuntime().availableProcessors()}")
-        findViewById<View>(R.id.load).setOnClickListener {
-            loader.load(iv1, u1, onCanceled = { Log.d(TAG, "onCanceled 1") })
-            loader.load(iv2, u2, onCanceled = { Log.d(TAG, "onCanceled 2") })
-            loader.load(iv3, u3, onCanceled = { Log.d(TAG, "onCanceled 3") })
-            loader.load(iv4, u4, onCanceled = { Log.d(TAG, "onCanceled 4") })
-            loader.load(iv5, u5, onCanceled = { Log.d(TAG, "onCanceled 5") })
-//            Handler().postDelayed({ finish() }, 200)
+
+        load.setOnClickListener {
+            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "*/*"
+            }, 0)
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == 0 && resultCode == Activity.RESULT_OK && data != null) {
+            data.data?.also { uri ->
+                loader.load(iv, u1,centerCrop = false)
+            }
         }
     }
 }
