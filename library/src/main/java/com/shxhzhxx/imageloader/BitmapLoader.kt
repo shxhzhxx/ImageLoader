@@ -2,13 +2,13 @@ package com.shxhzhxx.imageloader
 
 import android.content.ContentResolver
 import android.graphics.*
-import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
 import android.util.Log
 import android.util.LruCache
 import androidx.annotation.IntRange
 import androidx.annotation.RequiresApi
+import androidx.exifinterface.media.ExifInterface
 import com.shxhzhxx.urlloader.TaskManager
 import com.shxhzhxx.urlloader.UrlLoader
 import java.io.File
@@ -75,10 +75,9 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
                 return null
             val bitmap = memoryCache[params] ?: kotlin.run {
                 return@run try {
-                    val rotate = (contentResolver.openInputStream(Uri.parse(params.path))
-                            ?: throw FileNotFoundException("Unable to create stream")).readRotate()
-                    (contentResolver.openInputStream(Uri.parse(params.path))
-                            ?: throw FileNotFoundException("Unable to create stream")).decodeBitmap(params,rotate)
+                    fun inputStream() = (contentResolver.openInputStream(Uri.parse(params.path))
+                            ?: throw FileNotFoundException("Unable to create stream"))
+                    decodeBitmap({ inputStream() }, params, inputStream().readRotateAndClose())
                 } catch (e: FileNotFoundException) {
                     val f = File(params.path)
                     (if (f.exists()) f else urlLoader.syncLoad(params.path, { isCanceled || (allSyncCanceled && asyncObservers.isEmpty()) }))?.decodeBitmap(params)
@@ -107,9 +106,9 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
     }
 
 
-    private fun InputStream.readRotate(): Int {
+    private fun InputStream.readRotateAndClose() = kotlin.run {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            return try {
+            return@run try {
                 ExifInterface(this).readRotate()
             } catch (e: IOException) {
                 0
@@ -119,9 +118,9 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
             val os = try {
                 file.outputStream()
             } catch (e: FileNotFoundException) {
-                return 0
+                return@run 0
             }
-            return try {
+            return@run try {
                 val buff = ByteArray(8 * 1024)
                 while (true) {
                     val len = read(buff, 0, buff.size)
@@ -137,15 +136,23 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
                 file.delete()
             }
         }
-    }
+    }.also { close() }
 
-    private fun InputStream.decodeBitmap(params: Params, rotate: Int): Bitmap? {
+    private fun decodeBitmap(getInputStream: () -> InputStream, params: Params, rotate: Int): Bitmap? {
+        fun decodeStream(inputStream: InputStream, opts: BitmapFactory.Options) = try {
+            BitmapFactory.decodeStream(inputStream, null, opts)
+        } catch (e: Throwable) {
+            null
+        } finally {
+            inputStream.close()
+        }
+
         val centerCrop = params.centerCrop && params.height > 0 && params.width > 0
         if (params.height <= 0 && params.width <= 0) {
             Log.e(TAG, "load bitmap without compress")
         }
         val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeStream(this, null, opts)
+        decodeStream(getInputStream(), opts)
         val (dstWidth, dstHeight) = when (rotate) {
             90, 270 -> params.height to params.width
             else -> params.width to params.height
@@ -156,32 +163,33 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
         opts.inJustDecodeBounds = false
         opts.inSampleSize = if (dst == 0) 0 else out / dst
 
-        return (
-                if (!centerCrop)
-                    BitmapFactory.decodeStream(this, null, opts)?.let { bitmap ->
-                        val resizeFactor = listOf(dstWidth to bitmap.width, dstHeight to bitmap.height).filter { it.first > 0 && it.second > 0 }
-                                .map { it.first.toFloat() / it.second }.min() ?: return@let bitmap
-                        return@let if (resizeFactor == 1f) bitmap else {
-                            Bitmap.createScaledBitmap(bitmap, (bitmap.width * resizeFactor).toInt(), (bitmap.height * resizeFactor).toInt(), true)
-                        }
-                    }
-                else
-                    try {
-                        val inSampleSize = out.toFloat() / dst
-                        val bitmap = BitmapRegionDecoder.newInstance(this, false).decodeRegion(Rect(
-                                ((opts.outWidth / 2 - dstWidth * inSampleSize / 2).toInt()),
-                                ((opts.outHeight / 2 - dstHeight * inSampleSize / 2).toInt()),
-                                ((opts.outWidth / 2 + dstWidth * inSampleSize / 2).toInt()),
-                                ((opts.outHeight / 2 + dstHeight * inSampleSize / 2).toInt())), opts)
-                                ?: return null
-                        Bitmap.createScaledBitmap(bitmap, dstWidth, dstHeight, true)
-                    } catch (e: IOException) {
-                        null
-                    }
-                )
-                ?.let { bitmap ->
-                    return@let if (rotate == 0) bitmap else Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, Matrix().apply { postRotate(rotate.toFloat()) }, true)
+        return (if (!centerCrop) {
+            decodeStream(getInputStream(), opts)?.let { bitmap ->
+                val resizeFactor = listOf(dstWidth to bitmap.width, dstHeight to bitmap.height).filter { it.first > 0 && it.second > 0 }
+                        .map { it.first.toFloat() / it.second }.min() ?: return@let bitmap
+                return@let if (resizeFactor == 1f) bitmap else {
+                    Bitmap.createScaledBitmap(bitmap, (bitmap.width * resizeFactor).toInt(), (bitmap.height * resizeFactor).toInt(), true)
                 }
+            }
+        } else {
+            val inputStream = getInputStream()
+            try {
+                val inSampleSize = out.toFloat() / dst
+                val bitmap = BitmapRegionDecoder.newInstance(inputStream, false).decodeRegion(Rect(
+                        ((opts.outWidth / 2 - dstWidth * inSampleSize / 2).toInt()),
+                        ((opts.outHeight / 2 - dstHeight * inSampleSize / 2).toInt()),
+                        ((opts.outWidth / 2 + dstWidth * inSampleSize / 2).toInt()),
+                        ((opts.outHeight / 2 + dstHeight * inSampleSize / 2).toInt())), opts)
+                        ?: return null
+                Bitmap.createScaledBitmap(bitmap, dstWidth, dstHeight, true)
+            } catch (e: IOException) {
+                null
+            } finally {
+                inputStream.close()
+            }
+        })?.let { bitmap ->
+            return@let if (rotate == 0) bitmap else Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, Matrix().apply { postRotate(rotate.toFloat()) }, true)
+        }
     }
 
     private fun ExifInterface.readRotate() = when (getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)) {
@@ -199,7 +207,7 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
 
 
     private fun File.decodeBitmap(params: Params) = try {
-        inputStream().decodeBitmap(params, readRotate())
+        decodeBitmap({ inputStream() }, params, readRotate())
     } catch (e: FileNotFoundException) {
         null
     }

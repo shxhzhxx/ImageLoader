@@ -35,7 +35,7 @@ class MainActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == 0 && resultCode == Activity.RESULT_OK && data != null) {
             data.data?.also { uri ->
-                loader.load(iv, u1,centerCrop = false)
+                loader.load(iv, uri.toString(),centerCrop = false)
             }
         }
     }
