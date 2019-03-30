@@ -32,6 +32,9 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
         override fun sizeOf(key: Params, value: Bitmap) = value.byteCount / MEM_SCALE
     }
 
+    /**
+     * @param path could be url, [File.getAbsolutePath] , [Uri.toString]
+     * */
     @JvmOverloads
     fun asyncLoad(path: String, @IntRange(from = 0) width: Int = 0, @IntRange(from = 0) height: Int = 0, centerCrop: Boolean = true, tag: Any? = null,
                   onComplete: ((Bitmap) -> Unit)? = null,
@@ -77,7 +80,7 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
                 return@run try {
                     fun inputStream() = (contentResolver.openInputStream(Uri.parse(params.path))
                             ?: throw FileNotFoundException("Unable to create stream"))
-                    decodeBitmap({ inputStream() }, params, inputStream().readRotateAndClose())
+                    decodeBitmap({ inputStream() }, params, inputStream().readRotateThenClose())
                 } catch (e: FileNotFoundException) {
                     val f = File(params.path)
                     (if (f.exists()) f else urlLoader.syncLoad(params.path, { isCanceled || (allSyncCanceled && asyncObservers.isEmpty()) }))?.decodeBitmap(params)
@@ -106,7 +109,7 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
     }
 
 
-    private fun InputStream.readRotateAndClose() = kotlin.run {
+    private fun InputStream.readRotateThenClose() = kotlin.run {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             return@run try {
                 ExifInterface(this).readRotate()
