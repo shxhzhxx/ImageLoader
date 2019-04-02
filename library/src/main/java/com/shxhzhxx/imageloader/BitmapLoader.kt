@@ -21,9 +21,9 @@ private const val TAG = "BitmapLoader"
 private const val MEM_SCALE = 1024
 
 class Callback(
-        val onComplete: ((Bitmap) -> Unit)? = null,
-        val onFailed: (() -> Unit)? = null,
-        val onCanceled: (() -> Unit)? = null
+        val onLoad: ((Bitmap) -> Unit)? = null,
+        val onFailure: (() -> Unit)? = null,
+        val onCancel: (() -> Unit)? = null
 )
 
 class BitmapLoader(private val contentResolver: ContentResolver, private val fileCachePath: File) : TaskManager<Callback, Bitmap>() {
@@ -37,13 +37,13 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
      * */
     @JvmOverloads
     fun asyncLoad(path: String, @IntRange(from = 0) width: Int = 0, @IntRange(from = 0) height: Int = 0, centerCrop: Boolean = true, tag: Any? = null,
-                  onComplete: ((Bitmap) -> Unit)? = null,
-                  onFailed: (() -> Unit)? = null,
-                  onCanceled: (() -> Unit)? = null): Int {
+                  onLoad: ((Bitmap) -> Unit)? = null,
+                  onFailure: (() -> Unit)? = null,
+                  onCancel: (() -> Unit)? = null): Int {
         val params = Params(path, width, height, centerCrop)
-        return asyncStart(params, { Worker(params) }, tag, Callback(onComplete, onFailed, onCanceled)).also { id ->
+        return asyncStart(params, { Worker(params) }, tag, Callback(onLoad, onFailure, onCancel)).also { id ->
             if (id < 0) {
-                onFailed?.invoke()
+                onFailure?.invoke()
             }
         }
     }
@@ -74,7 +74,7 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
 
     private inner class Worker(private val params: Params) : Task(params) {
         override fun doInBackground(): Bitmap? {
-            if (isCanceled)
+            if (isCancelled)
                 return null
             val bitmap = memoryCache[params] ?: kotlin.run {
                 return@run try {
@@ -83,7 +83,7 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
                     decodeBitmap({ inputStream() }, params, inputStream().readRotateThenClose())
                 } catch (e: FileNotFoundException) {
                     val f = File(params.path)
-                    (if (f.exists()) f else urlLoader.syncLoad(params.path, { isCanceled || (allSyncCanceled && asyncObservers.isEmpty()) }))?.decodeBitmap(params)
+                    (if (f.exists()) f else urlLoader.syncLoad(params.path, { isCancelled || (allSyncCanceled && asyncObservers.isEmpty()) }))?.decodeBitmap(params)
                 }
             }?.also {
                 if (it.byteCount / MEM_SCALE < memoryCache.size() / 2) {
@@ -92,19 +92,19 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
             }
 
             postResult = if (bitmap != null) Runnable {
-                observers.forEach { it?.onComplete?.invoke(bitmap) }
+                observers.forEach { it?.onLoad?.invoke(bitmap) }
             } else Runnable {
-                observers.forEach { it?.onFailed?.invoke() }
+                observers.forEach { it?.onFailure?.invoke() }
             }
             return bitmap
         }
 
         override fun onObserverUnregistered(observer: Callback?) {
-            observer?.onCanceled?.invoke()
+            observer?.onCancel?.invoke()
         }
 
-        override fun onCanceled() {
-            observers.forEach { it?.onCanceled?.invoke() }
+        override fun onCancel() {
+            observers.forEach { it?.onCancel?.invoke() }
         }
     }
 

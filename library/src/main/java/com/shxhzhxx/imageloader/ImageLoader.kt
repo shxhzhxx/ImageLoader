@@ -24,9 +24,9 @@ import java.io.File
 
 
 class ICallback(
-        val onComplete: (() -> Unit)? = null,
-        val onFailed: (() -> Unit)? = null,
-        val onCanceled: (() -> Unit)? = null
+        val onLoad: (() -> Unit)? = null,
+        val onFailure: (() -> Unit)? = null,
+        val onCancel: (() -> Unit)? = null
 )
 
 
@@ -72,14 +72,14 @@ class ImageLoader(contentResolver: ContentResolver,fileCachePath: File) : TaskMa
              placeholder: Int? = 0,// pass 0 will clear current drawable before load
              error: Int? = null,
              transformation: ((Bitmap) -> Bitmap)? = null,
-             onComplete: (() -> Unit)? = null,
-             onFailed: (() -> Unit)? = null,
-             onCanceled: (() -> Unit)? = null): Int {
+             onLoad: (() -> Unit)? = null,
+             onFailure: (() -> Unit)? = null,
+             onCancel: (() -> Unit)? = null): Int {
         cancel(iv)
         if (placeholder != null)
             iv.setImageResource(placeholder)
         if (path == null) {
-            onFailed?.invoke()
+            onFailure?.invoke()
             return -1
         }
         if (lifecycle != null && !lifecycleSet.contains(lifecycle)) {
@@ -93,9 +93,9 @@ class ImageLoader(contentResolver: ContentResolver,fileCachePath: File) : TaskMa
             })
         }
         return asyncStart(iv, { Worker(iv, path, centerCrop, width, height, waitForLayout, error, transformation) }
-                , lifecycle, ICallback(onComplete, onFailed, onCanceled)).also { id ->
+                , lifecycle, ICallback(onLoad, onFailure, onCancel)).also { id ->
             if (id < 0) {
-                onFailed?.invoke()
+                onFailure?.invoke()
             }
         }
     }
@@ -110,12 +110,12 @@ class ImageLoader(contentResolver: ContentResolver,fileCachePath: File) : TaskMa
             private val error: Int?,
             private val transformation: ((Bitmap) -> Bitmap)?
     ) : Task(iv) {
-        override fun onCanceled() {
-            observers.forEach { it?.onCanceled?.invoke() }
+        override fun onCancel() {
+            observers.forEach { it?.onCancel?.invoke() }
         }
 
         override fun onObserverUnregistered(observer: ICallback?) {
-            observer?.onCanceled?.invoke()
+            observer?.onCancel?.invoke()
         }
 
         override fun doInBackground() {
@@ -123,16 +123,16 @@ class ImageLoader(contentResolver: ContentResolver,fileCachePath: File) : TaskMa
                 width != null || height != null -> (width ?: 0) to (height ?: 0)
                 else -> runBlocking(Dispatchers.Main) { iv.waitForLaidOut(if (waitForLayout) 50 else 5) { it.width to it.height } }
             }
-            val bitmap = bitmapLoader.syncLoad(path, { isCanceled }, w, h, centerCrop)?.let {
+            val bitmap = bitmapLoader.syncLoad(path, { isCancelled }, w, h, centerCrop)?.let {
                 return@let transformation?.invoke(it) ?: it
             }
             postResult = if (bitmap != null) Runnable {
                 iv.setImageBitmap(bitmap)
-                observers.forEach { it?.onComplete?.invoke() }
+                observers.forEach { it?.onLoad?.invoke() }
             } else Runnable {
                 if (error != null)
                     iv.setImageResource(error)
-                observers.forEach { it?.onFailed?.invoke() }
+                observers.forEach { it?.onFailure?.invoke() }
             }
         }
     }
