@@ -8,7 +8,6 @@ import android.renderscript.Allocation
 import android.renderscript.Element
 import android.renderscript.RenderScript
 import android.renderscript.ScriptIntrinsicBlur
-import android.util.Log
 import android.view.View
 import android.widget.ImageView
 import androidx.annotation.RequiresApi
@@ -23,11 +22,7 @@ import kotlinx.coroutines.runBlocking
 import java.io.File
 
 
-class ICallback(
-        val onLoad: (() -> Unit)? = null,
-        val onFailure: (() -> Unit)? = null,
-        val onCancel: (() -> Unit)? = null
-)
+
 
 
 /**
@@ -58,7 +53,12 @@ fun blurTransformation(context: Context, bitmap: Bitmap, radius: Float = 16f, in
     return outputBitmap
 }
 
-class ImageLoader(contentResolver: ContentResolver,fileCachePath: File) : TaskManager<ICallback, Unit>() {
+class ImageLoader(contentResolver: ContentResolver,fileCachePath: File) : TaskManager<ImageLoader.Holder, Unit>() {
+    class Holder(
+            val onLoad: (() -> Unit)? = null,
+            val onFailure: (() -> Unit)? = null,
+            val onCancel: (() -> Unit)? = null
+    )
     val bitmapLoader = BitmapLoader(contentResolver,fileCachePath)
     private val lifecycleSet = HashSet<Lifecycle>()
 
@@ -93,7 +93,7 @@ class ImageLoader(contentResolver: ContentResolver,fileCachePath: File) : TaskMa
             })
         }
         return asyncStart(iv, { Worker(iv, path, centerCrop, width, height, waitForLayout, error, transformation) }
-                , lifecycle, ICallback(onLoad, onFailure, onCancel)).also { id ->
+                , lifecycle, Holder(onLoad, onFailure, onCancel)).also { id ->
             if (id < 0) {
                 onFailure?.invoke()
             }
@@ -114,7 +114,7 @@ class ImageLoader(contentResolver: ContentResolver,fileCachePath: File) : TaskMa
             observers.forEach { it?.onCancel?.invoke() }
         }
 
-        override fun onObserverUnregistered(observer: ICallback?) {
+        override fun onObserverUnregistered(observer: Holder?) {
             observer?.onCancel?.invoke()
         }
 

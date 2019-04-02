@@ -20,13 +20,14 @@ import java.util.*
 private const val TAG = "BitmapLoader"
 private const val MEM_SCALE = 1024
 
-class Callback(
-        val onLoad: ((Bitmap) -> Unit)? = null,
-        val onFailure: (() -> Unit)? = null,
-        val onCancel: (() -> Unit)? = null
-)
 
-class BitmapLoader(private val contentResolver: ContentResolver, private val fileCachePath: File) : TaskManager<Callback, Bitmap>() {
+
+class BitmapLoader(private val contentResolver: ContentResolver, private val fileCachePath: File) : TaskManager<BitmapLoader.Holder, Bitmap>() {
+    class Holder(
+            val onLoad: ((Bitmap) -> Unit)? = null,
+            val onFailure: (() -> Unit)? = null,
+            val onCancel: (() -> Unit)? = null
+    )
     val urlLoader = UrlLoader(fileCachePath, 50 * 1024 * 1024)
     private val memoryCache = object : LruCache<Params, Bitmap>((Math.max(1, Runtime.getRuntime().maxMemory() / MEM_SCALE / 8)).toInt()) {
         override fun sizeOf(key: Params, value: Bitmap) = value.byteCount / MEM_SCALE
@@ -41,7 +42,7 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
                   onFailure: (() -> Unit)? = null,
                   onCancel: (() -> Unit)? = null): Int {
         val params = Params(path, width, height, centerCrop)
-        return asyncStart(params, { Worker(params) }, tag, Callback(onLoad, onFailure, onCancel)).also { id ->
+        return asyncStart(params, { Worker(params) }, tag, Holder(onLoad, onFailure, onCancel)).also { id ->
             if (id < 0) {
                 onFailure?.invoke()
             }
@@ -99,7 +100,7 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
             return bitmap
         }
 
-        override fun onObserverUnregistered(observer: Callback?) {
+        override fun onObserverUnregistered(observer: Holder?) {
             observer?.onCancel?.invoke()
         }
 
