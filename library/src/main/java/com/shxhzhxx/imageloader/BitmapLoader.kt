@@ -21,13 +21,13 @@ private const val TAG = "BitmapLoader"
 private const val MEM_SCALE = 1024
 
 
-
 class BitmapLoader(private val contentResolver: ContentResolver, private val fileCachePath: File) : TaskManager<BitmapLoader.Holder, Bitmap>() {
     class Holder(
             val onLoad: ((Bitmap) -> Unit)? = null,
             val onFailure: (() -> Unit)? = null,
             val onCancel: (() -> Unit)? = null
     )
+
     val urlLoader = UrlLoader(fileCachePath, 50 * 1024 * 1024)
     private val memoryCache = object : LruCache<Params, Bitmap>((Math.max(1, Runtime.getRuntime().maxMemory() / MEM_SCALE / 8)).toInt()) {
         override fun sizeOf(key: Params, value: Bitmap) = value.byteCount / MEM_SCALE
@@ -110,37 +110,25 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
     }
 
 
-    private fun InputStream.readRotateThenClose() = kotlin.run {
+    private fun InputStream.readRotateThenClose() = use {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            return@run try {
+            return@use try {
                 ExifInterface(this).readRotate()
             } catch (e: IOException) {
                 0
             }
         } else {
             val file = File(fileCachePath, urlLoader.md5(UUID.randomUUID().toString()))
-            val os = try {
-                file.outputStream()
-            } catch (e: FileNotFoundException) {
-                return@run 0
-            }
-            return@run try {
-                val buff = ByteArray(8 * 1024)
-                while (true) {
-                    val len = read(buff, 0, buff.size)
-                    if (len < 0)
-                        break
-                    os.write(buff, 0, len)
-                }
+            return@use try {
+                file.outputStream().use { copyTo(it) }
                 file.readRotate()
             } catch (e: IOException) {
                 0
             } finally {
-                os.close()
                 file.delete()
             }
         }
-    }.also { close() }
+    }
 
     private fun decodeBitmap(getInputStream: () -> InputStream, params: Params, rotate: Int): Bitmap? {
         fun decodeStream(inputStream: InputStream, opts: BitmapFactory.Options) = try {
