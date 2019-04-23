@@ -37,7 +37,7 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
      * @param path could be url, [File.getAbsolutePath] , [Uri.toString]
      * */
     @JvmOverloads
-    fun asyncLoad(path: String, @IntRange(from = 0) width: Int = 0, @IntRange(from = 0) height: Int = 0, centerCrop: Boolean = true, tag: Any? = null,
+    fun load(path: String, @IntRange(from = 0) width: Int = 0, @IntRange(from = 0) height: Int = 0, centerCrop: Boolean = true, tag: Any? = null,
                   onLoad: ((Bitmap) -> Unit)? = null,
                   onFailure: (() -> Unit)? = null,
                   onCancel: (() -> Unit)? = null): Int {
