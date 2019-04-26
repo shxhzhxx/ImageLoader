@@ -27,7 +27,7 @@ android {
 }
 
 dependencies {
-    implementation 'com.github.shxhzhxx:UrlLoader:1.2.3'
+    implementation 'com.github.shxhzhxx:UrlLoader:1.2.4'
 }
 
 // 指定编码
