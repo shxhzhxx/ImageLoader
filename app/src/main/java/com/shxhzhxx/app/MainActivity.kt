@@ -1,11 +1,9 @@
 package com.shxhzhxx.app
 
-import android.app.Activity
-import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import com.blankj.utilcode.util.UriUtils
 import com.shxhzhxx.imageloader.ImageLoader
+import com.shxhzhxx.imageloader.cornerTransformation
 import kotlinx.android.synthetic.main.activity_main.*
 
 
@@ -25,18 +23,7 @@ class MainActivity : AppCompatActivity() {
 
 
         load.setOnClickListener {
-            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                addCategory(Intent.CATEGORY_OPENABLE)
-                type = "*/*"
-            }, 0)
-        }
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (requestCode == 0 && resultCode == Activity.RESULT_OK && data != null) {
-            data.data?.also { uri ->
-                loader.load(iv, uri.toString(),centerCrop = false)
-            }
+            loader.load(iv, u1, transformation = { cornerTransformation(it, 40f) })
         }
     }
 }
