@@ -103,7 +103,7 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
              waitForLayout: Boolean = false,
              placeholder: Int? = 0,// pass 0 will clear current drawable before load
              error: Int? = null,
-             transformation: (Bitmap) -> Drawable = { BitmapDrawable(iv.resources, it) },
+             transformation: ((Bitmap) -> Drawable)? = null,
              onLoad: (() -> Unit)? = null,
              onFailure: (() -> Unit)? = null,
              onCancel: (() -> Unit)? = null): Int {
@@ -124,8 +124,10 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
                 }
             })
         }
-        return asyncStart(iv, { Worker(iv, path, centerCrop, width, height, waitForLayout, error, transformation) }
-                , lifecycle, Holder(onLoad, onFailure, onCancel)).also { id ->
+        return asyncStart(iv, {
+            Worker(iv, path, centerCrop, width, height, waitForLayout, error, transformation
+                    ?: { BitmapDrawable(iv.resources, it) })
+        }, lifecycle, Holder(onLoad, onFailure, onCancel)).also { id ->
             if (id < 0) {
                 onFailure?.invoke()
             }
