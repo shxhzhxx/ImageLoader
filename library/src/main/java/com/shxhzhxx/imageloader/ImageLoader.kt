@@ -96,7 +96,7 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
 
     @JvmOverloads
     fun load(iv: ImageView, path: String?,
-             lifecycle: Lifecycle? = iv.context.let { if (it is FragmentActivity) it.lifecycle else null },
+             lifecycle: Lifecycle? = (iv.context as? FragmentActivity)?.lifecycle,
              centerCrop: Boolean = true,
              width: Int? = if (iv.isLaidOutCompat) iv.width else null,
              height: Int? = if (iv.isLaidOutCompat) iv.height else null,

@@ -1,9 +1,13 @@
 package com.shxhzhxx.app
 
+import android.graphics.Canvas
+import android.graphics.ColorFilter
+import android.graphics.Movie
+import android.graphics.PixelFormat
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.shxhzhxx.imageloader.ImageLoader
-import com.shxhzhxx.imageloader.cornerTransformation
 import kotlinx.android.synthetic.main.activity_main.*
 
 
@@ -23,7 +27,26 @@ class MainActivity : AppCompatActivity() {
 
 
         load.setOnClickListener {
-            loader.load(iv, u1, transformation = { cornerTransformation(it, 40f) })
+            loader.bitmapLoader.urlLoader.load("http://img.mp.itc.cn/upload/20170110/b56b87be5f174eca81f9d06116aa1968.jpg", onLoad = {
+                val movie = Movie.decodeFile(it.absolutePath)
+                iv.setImageDrawable(object : Drawable() {
+                    override fun draw(canvas: Canvas) {
+                        movie.draw(canvas, 0f, 0f)
+                    }
+
+                    override fun setAlpha(alpha: Int) {
+
+                    }
+
+                    override fun getOpacity(): Int {
+                        return PixelFormat.TRANSLUCENT
+                    }
+
+                    override fun setColorFilter(colorFilter: ColorFilter?) {
+                    }
+
+                })
+            })
         }
     }
 }
