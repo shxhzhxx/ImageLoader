@@ -2,9 +2,7 @@ package com.shxhzhxx.imageloader
 
 import android.content.ContentResolver
 import android.content.Context
-import android.graphics.*
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Drawable
+import android.graphics.Bitmap
 import android.os.Build
 import android.renderscript.Allocation
 import android.renderscript.Element
@@ -52,45 +50,13 @@ fun blurTransformation(context: Context, bitmap: Bitmap, radius: Float = 16f, in
     return outputBitmap
 }
 
-fun cornerTransformation(bitmap: Bitmap, radius: Float) = object : Drawable() {
-    private val rect = RectF()
-    private val paint: Paint = Paint().apply {
-        isAntiAlias = true
-        shader = BitmapShader(
-                bitmap,
-                Shader.TileMode.CLAMP, Shader.TileMode.CLAMP
-        )
-    }
-
-    override fun onBoundsChange(bounds: Rect) {
-        super.onBoundsChange(bounds)
-        rect.set(bounds)
-    }
-
-    override fun draw(canvas: Canvas) {
-        canvas.drawRoundRect(rect, radius, radius, paint)
-    }
-
-    override fun getOpacity(): Int {
-        return PixelFormat.TRANSLUCENT
-    }
-
-    override fun setAlpha(alpha: Int) {
-        paint.alpha = alpha
-    }
-
-    override fun setColorFilter(cf: ColorFilter?) {
-        paint.colorFilter = cf
-    }
-
-}
-
 class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskManager<ImageLoader.Holder, Unit>() {
     class Holder(
             val onLoad: (() -> Unit)? = null,
             val onFailure: (() -> Unit)? = null,
             val onCancel: (() -> Unit)? = null
     )
+
     val bitmapLoader = BitmapLoader(contentResolver, fileCachePath)
     private val lifecycleSet = HashSet<Lifecycle>()
 
@@ -98,12 +64,13 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
     fun load(iv: ImageView, path: String?,
              lifecycle: Lifecycle? = (iv.context as? FragmentActivity)?.lifecycle,
              centerCrop: Boolean = true,
+             roundingRadius: Float = 0f,
              width: Int? = if (iv.isLaidOutCompat) iv.width else null,
              height: Int? = if (iv.isLaidOutCompat) iv.height else null,
              waitForLayout: Boolean = false,
              placeholder: Int? = 0,// pass 0 will clear current drawable before load
              error: Int? = null,
-             transformation: ((Bitmap) -> Drawable)? = null,
+             transformation: ((Bitmap) -> Bitmap) = { it },
              onLoad: (() -> Unit)? = null,
              onFailure: (() -> Unit)? = null,
              onCancel: (() -> Unit)? = null): Int {
@@ -125,8 +92,7 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
             })
         }
         return asyncStart(iv, {
-            Worker(iv, path, centerCrop, width, height, waitForLayout, error, transformation
-                    ?: { BitmapDrawable(iv.resources, it) })
+            Worker(iv, path, centerCrop, roundingRadius, width, height, waitForLayout, error, transformation)
         }, lifecycle, Holder(onLoad, onFailure, onCancel)).also { id ->
             if (id < 0) {
                 onFailure?.invoke()
@@ -138,11 +104,12 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
             private val iv: ImageView,
             private val path: String,
             private val centerCrop: Boolean,
+            private val roundingRadius: Float,
             private val width: Int?,
             private val height: Int?,
             private val waitForLayout: Boolean,
             private val error: Int?,
-            private val transformation: (Bitmap) -> Drawable
+            private val transformation: (Bitmap) -> Bitmap
     ) : Task(iv) {
         override fun onCancel() {
             observers.forEach { it?.onCancel?.invoke() }
@@ -157,11 +124,11 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
                 width != null || height != null -> (width ?: 0) to (height ?: 0)
                 else -> runBlocking(Dispatchers.Main) { iv.waitForLaidOut(if (waitForLayout) 50 else 5) { it.width to it.height } }
             }
-            val drawable = bitmapLoader.syncLoad(path, { isCancelled }, w, h, centerCrop)?.let {
+            val bitmap = bitmapLoader.syncLoad(path, { isCancelled }, w, h, centerCrop, roundingRadius)?.let {
                 return@let transformation.invoke(it)
             }
-            postResult = if (drawable != null) Runnable {
-                iv.setImageDrawable(drawable)
+            postResult = if (bitmap != null) Runnable {
+                iv.setImageBitmap(bitmap)
                 observers.forEach { it?.onLoad?.invoke() }
             } else Runnable {
                 if (error != null)

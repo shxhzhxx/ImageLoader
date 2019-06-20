@@ -27,26 +27,7 @@ class MainActivity : AppCompatActivity() {
 
 
         load.setOnClickListener {
-            loader.bitmapLoader.urlLoader.load("http://img.mp.itc.cn/upload/20170110/b56b87be5f174eca81f9d06116aa1968.jpg", onLoad = {
-                val movie = Movie.decodeFile(it.absolutePath)
-                iv.setImageDrawable(object : Drawable() {
-                    override fun draw(canvas: Canvas) {
-                        movie.draw(canvas, 0f, 0f)
-                    }
-
-                    override fun setAlpha(alpha: Int) {
-
-                    }
-
-                    override fun getOpacity(): Int {
-                        return PixelFormat.TRANSLUCENT
-                    }
-
-                    override fun setColorFilter(colorFilter: ColorFilter?) {
-                    }
-
-                })
-            })
+            loader.load(iv, "https://static.usasishu.com/20190620_172316.jpg", centerCrop = false,roundingRadius = 40f)
         }
     }
 }
