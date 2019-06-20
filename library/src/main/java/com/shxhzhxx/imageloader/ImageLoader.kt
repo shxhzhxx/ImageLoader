@@ -70,7 +70,7 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
              waitForLayout: Boolean = false,
              placeholder: Int? = 0,// pass 0 will clear current drawable before load
              error: Int? = null,
-             transformation: ((Bitmap) -> Bitmap) = { it },
+             transformation: ((Bitmap) -> Bitmap)? = null,
              onLoad: (() -> Unit)? = null,
              onFailure: (() -> Unit)? = null,
              onCancel: (() -> Unit)? = null): Int {
@@ -109,7 +109,7 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
             private val height: Int?,
             private val waitForLayout: Boolean,
             private val error: Int?,
-            private val transformation: (Bitmap) -> Bitmap
+            private val transformation: ((Bitmap) -> Bitmap)?
     ) : Task(iv) {
         override fun onCancel() {
             observers.forEach { it?.onCancel?.invoke() }
@@ -125,7 +125,7 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
                 else -> runBlocking(Dispatchers.Main) { iv.waitForLaidOut(if (waitForLayout) 50 else 5) { it.width to it.height } }
             }
             val bitmap = bitmapLoader.syncLoad(path, { isCancelled }, w, h, centerCrop, roundingRadius)?.let {
-                return@let transformation.invoke(it)
+                transformation?.invoke(it) ?: it
             }
             postResult = if (bitmap != null) Runnable {
                 iv.setImageBitmap(bitmap)
