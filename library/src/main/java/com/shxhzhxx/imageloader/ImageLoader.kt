@@ -20,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.io.File
+import kotlin.math.min
 
 
 /**
@@ -64,7 +65,7 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
     fun load(iv: ImageView, path: String?,
              lifecycle: Lifecycle? = (iv.context as? FragmentActivity)?.lifecycle,
              centerCrop: Boolean = true,
-             roundingRadius: Float = 0f,
+             roundingRadius: Int = 0,
              width: Int? = if (iv.isLaidOutCompat) iv.width else null,
              height: Int? = if (iv.isLaidOutCompat) iv.height else null,
              waitForLayout: Boolean = false,
@@ -104,7 +105,7 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
             private val iv: ImageView,
             private val path: String,
             private val centerCrop: Boolean,
-            private val roundingRadius: Float,
+            private val roundingRadius: Int,
             private val width: Int?,
             private val height: Int?,
             private val waitForLayout: Boolean,

@@ -6,7 +6,6 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import android.util.LruCache
-import androidx.annotation.FloatRange
 import androidx.annotation.IntRange
 import androidx.annotation.RequiresApi
 import androidx.exifinterface.media.ExifInterface
@@ -17,7 +16,9 @@ import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.InputStream
 import java.util.*
+import kotlin.math.min
 
+const val ROUND_CIRCLE = -1
 private const val TAG = "BitmapLoader"
 private const val MEM_SCALE = 1024
 
@@ -38,7 +39,7 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
      * @param path could be url, [File.getAbsolutePath] , [Uri.toString]
      * */
     @JvmOverloads
-    fun load(path: String, @IntRange(from = 0) width: Int = 0, @IntRange(from = 0) height: Int = 0, centerCrop: Boolean = true, @FloatRange(from = 0.0) roundingRadius: Float = 0f, tag: Any? = null,
+    fun load(path: String, @IntRange(from = 0) width: Int = 0, @IntRange(from = 0) height: Int = 0, centerCrop: Boolean = true, roundingRadius: Int = 0, tag: Any? = null,
              onLoad: ((Bitmap) -> Unit)? = null,
              onFailure: (() -> Unit)? = null,
              onCancel: (() -> Unit)? = null): Int {
@@ -50,7 +51,7 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
         }
     }
 
-    fun syncLoad(path: String, canceled: () -> Boolean, @IntRange(from = 0) width: Int = 0, @IntRange(from = 0) height: Int = 0, centerCrop: Boolean = true, @FloatRange(from = 0.0) roundingRadius: Float = 0f): Bitmap? {
+    fun syncLoad(path: String, canceled: () -> Boolean, @IntRange(from = 0) width: Int = 0, @IntRange(from = 0) height: Int = 0, centerCrop: Boolean = true, roundingRadius: Int = 0): Bitmap? {
         val params = Params(path, width, height, centerCrop, roundingRadius)
         return syncStart(params, { Worker(params) }, canceled)
     }
@@ -181,16 +182,22 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
         })?.let { bitmap ->
             if (rotate == 0) bitmap else Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, Matrix().apply { postRotate(rotate.toFloat()) }, true)
         }?.let { bitmap ->
-            if (params.roundingRadius == 0f) bitmap else Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888).apply {
-                Canvas(this).apply {
-                    drawRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), params.roundingRadius, params.roundingRadius, Paint().apply {
-                        isAntiAlias = true
-                        shader = BitmapShader(bitmap, Shader.TileMode.CLAMP,
-                                Shader.TileMode.CLAMP)
-                    })
-                    setBitmap(null)
-                }
+            when {
+                params.roundingRadius == 0 -> bitmap
+                params.roundingRadius < 0 -> bitmap.toRounded(min(bitmap.width, bitmap.height).toFloat() / 2)
+                else -> bitmap.toRounded(params.roundingRadius.toFloat())
             }
+        }
+    }
+
+    private fun Bitmap.toRounded(radius: Float) = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { bitmap ->
+        Canvas(bitmap).also { canvas ->
+            canvas.drawRoundRect(RectF(0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat()), radius, radius, Paint().also { paint ->
+                paint.isAntiAlias = true
+                paint.shader = BitmapShader(this, Shader.TileMode.CLAMP,
+                        Shader.TileMode.CLAMP)
+            })
+            canvas.setBitmap(null)
         }
     }
 
@@ -215,5 +222,5 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
     }
 }
 
-data class Params(val path: String, val width: Int, val height: Int, val centerCrop: Boolean, val roundingRadius: Float)
+data class Params(val path: String, val width: Int, val height: Int, val centerCrop: Boolean, val roundingRadius: Int)
 

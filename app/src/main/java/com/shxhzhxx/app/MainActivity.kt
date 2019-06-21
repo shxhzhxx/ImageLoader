@@ -1,13 +1,9 @@
 package com.shxhzhxx.app
 
-import android.graphics.Canvas
-import android.graphics.ColorFilter
-import android.graphics.Movie
-import android.graphics.PixelFormat
-import android.graphics.drawable.Drawable
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.shxhzhxx.imageloader.ImageLoader
+import com.shxhzhxx.imageloader.ROUND_CIRCLE
 import kotlinx.android.synthetic.main.activity_main.*
 
 
@@ -27,7 +23,7 @@ class MainActivity : AppCompatActivity() {
 
 
         load.setOnClickListener {
-            loader.load(iv, "https://static.usasishu.com/20190620_172316.jpg", centerCrop = false,roundingRadius = 40f)
+            loader.load(iv, "https://static.usasishu.com/20190620_172316.jpg", centerCrop = false, roundingRadius = 30)
         }
     }
 }

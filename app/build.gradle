@@ -27,10 +27,10 @@ dependencies {
     implementation 'com.github.shxhzhxx:UrlLoader:2.1.7'
     implementation 'com.blankj:utilcode:1.23.7'
     testImplementation 'junit:junit:4.12'
-    androidTestImplementation 'androidx.test:runner:1.1.1'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.1.1'
+    androidTestImplementation 'androidx.test:runner:1.2.0'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
     implementation project(':library')
-    implementation "androidx.core:core-ktx:1.0.1"
+    implementation "androidx.core:core-ktx:1.0.2"
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 }
 repositories {
