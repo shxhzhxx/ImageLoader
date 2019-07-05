@@ -20,7 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.io.File
-import kotlin.math.min
+import kotlin.math.round
 
 
 /**
@@ -33,8 +33,8 @@ import kotlin.math.min
 @RequiresApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
 fun blurTransformation(context: Context, bitmap: Bitmap, radius: Float = 16f, inSampleSize: Float = 2f): Bitmap {
     val rs = RenderScript.create(context) //potentially long-running operation
-    val width = Math.round(bitmap.width.toDouble() / inSampleSize).toInt()
-    val height = Math.round(bitmap.height.toDouble() / inSampleSize).toInt()
+    val width = round(bitmap.width.toDouble() / inSampleSize).toInt()
+    val height = round(bitmap.height.toDouble() / inSampleSize).toInt()
 
     val inputBitmap = Bitmap.createScaledBitmap(bitmap, width, height, false)
     val outputBitmap = Bitmap.createBitmap(inputBitmap)
@@ -80,6 +80,10 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
             iv.setImageResource(placeholder)
         if (path == null) {
             onFailure?.invoke()
+            return -1
+        }
+        if (lifecycle?.currentState == Lifecycle.State.DESTROYED) {
+            onCancel?.invoke()
             return -1
         }
         if (lifecycle != null && !lifecycleSet.contains(lifecycle)) {
