@@ -1,7 +1,6 @@
 package com.shxhzhxx.app
 
 import android.os.Bundle
-import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import com.shxhzhxx.imageloader.ImageLoader
 import kotlinx.android.synthetic.main.activity_main.*
@@ -19,26 +18,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        loader.cancelAll()
         setContentView(R.layout.activity_main)
-
-        load.setOnClickListener {
-            finish()
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-
-        loader.load(iv, "https://static.usasishu.com/20190620_172316.jpg", centerCrop = false, roundingRadius = 30,
-                onLoad = {
-                    Log.d(TAG, "onLoad")
-                },
-                onFailure = {
-                    Log.d(TAG, "onFailure")
-                },
-                onCancel = {
-                    Log.d(TAG, "onCancel")
-                }
-        )
+        loader.load(iv, u1)
     }
 }

@@ -19,6 +19,7 @@ import com.shxhzhxx.urlloader.TaskManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.yield
 import java.io.File
 import kotlin.math.round
 
@@ -127,7 +128,14 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
         override fun doInBackground() {
             val (w, h) = when {
                 width != null || height != null -> (width ?: 0) to (height ?: 0)
-                else -> runBlocking(Dispatchers.Main) { iv.waitForLaidOut(if (waitForLayout) 50 else 5) { it.width to it.height } }
+                else -> runBlocking(Dispatchers.Main) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                        iv.waitForLayout()
+                    } else {
+                        iv.waitForLaidOut(if (waitForLayout) 50 else 10)
+                    }
+                    iv.width to iv.height
+                }
             }
             val bitmap = bitmapLoader.syncLoad(path, { isCancelled }, w, h, centerCrop, roundingRadius)?.let {
                 transformation?.invoke(it) ?: it
@@ -145,12 +153,18 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
 }
 
 val View.isLaidOutCompat get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) isLaidOut else (width != 0 || height != 0)
-suspend fun <T> View.waitForLaidOut(times: Int = 5, action: (View) -> T): T {
+
+@Deprecated("Arbitrary defined times is unreliable", ReplaceWith("waitForLayout()"))
+suspend fun View.waitForLaidOut(times: Int = 10) {
     repeat(times) {
         if (isLaidOutCompat) {
             return@repeat
         }
         delay(10)
     }
-    return action.invoke(this)
+}
+
+@RequiresApi(Build.VERSION_CODES.KITKAT)
+suspend fun View.waitForLayout() {
+    while (!isLaidOut) yield()
 }
