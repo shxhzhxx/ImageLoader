@@ -20,6 +20,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         loader.cancelAll()
         setContentView(R.layout.activity_main)
-        loader.load(iv, u1)
+        load.setOnClickListener {
+            loader.load(iv, u1)
+        }
     }
 }

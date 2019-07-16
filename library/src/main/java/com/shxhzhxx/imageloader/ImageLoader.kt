@@ -21,6 +21,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.round
 
 
@@ -61,6 +62,7 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
 
     val bitmapLoader = BitmapLoader(contentResolver, fileCachePath)
     private val lifecycleSet = HashSet<Lifecycle>()
+    private val loadRecords = ConcurrentHashMap<Int, String>()
 
     @JvmOverloads
     fun load(iv: ImageView, path: String?,
@@ -69,16 +71,18 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
              roundingRadius: Int = 0,
              width: Int? = if (iv.isLaidOutCompat) iv.width else null,
              height: Int? = if (iv.isLaidOutCompat) iv.height else null,
-             waitForLayout: Boolean = false,
-             placeholder: Int? = 0,// pass 0 will clear current drawable before load
+             waitForLayout/* will be removed in future. */: Boolean = false,
+             placeholder: Int? = if (path == null || loadRecords[iv.hashCode()] != path) 0 else null,// pass 0 will clear current drawable before load
              error: Int? = null,
              transformation: ((Bitmap) -> Bitmap)? = null,
              onLoad: (() -> Unit)? = null,
              onFailure: (() -> Unit)? = null,
              onCancel: (() -> Unit)? = null): Int {
         cancel(iv)
-        if (placeholder != null)
+        if (placeholder != null) {
             iv.setImageResource(placeholder)
+            loadRecords.remove(iv.hashCode())
+        }
         if (path == null) {
             onFailure?.invoke()
             return -1
@@ -142,10 +146,13 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
             }
             postResult = if (bitmap != null) Runnable {
                 iv.setImageBitmap(bitmap)
+                loadRecords[iv.hashCode()] = path
                 observers.forEach { it?.onLoad?.invoke() }
             } else Runnable {
-                if (error != null)
+                if (error != null){
                     iv.setImageResource(error)
+                    loadRecords.remove(iv.hashCode())
+                }
                 observers.forEach { it?.onFailure?.invoke() }
             }
         }
