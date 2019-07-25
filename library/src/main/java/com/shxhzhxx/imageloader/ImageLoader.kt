@@ -16,11 +16,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleObserver
 import androidx.lifecycle.OnLifecycleEvent
 import com.shxhzhxx.urlloader.TaskManager
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.yield
+import kotlinx.coroutines.*
 import java.io.File
+import java.lang.Runnable
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.round
 
@@ -134,7 +132,16 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
                 width != null || height != null -> (width ?: 0) to (height ?: 0)
                 else -> runBlocking(Dispatchers.Main) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                        iv.waitForLayout()
+                        try {
+                            withTimeout(1000) { iv.waitForLayout() }
+                        } catch (timeout: TimeoutCancellationException) {
+                            /*
+                            * To prevent waitForLayout suspend forever,
+                            * wrap it in withTimeout and omit timeout exception
+                            *
+                            * https://issuetracker.google.com/issues/138310612
+                            * */
+                        }
                     } else {
                         iv.waitForLaidOut(if (waitForLayout) 50 else 10)
                     }
@@ -149,7 +156,7 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
                 loadRecords[iv.hashCode()] = path
                 observers.forEach { it?.onLoad?.invoke() }
             } else Runnable {
-                if (error != null){
+                if (error != null) {
                     iv.setImageResource(error)
                     loadRecords.remove(iv.hashCode())
                 }

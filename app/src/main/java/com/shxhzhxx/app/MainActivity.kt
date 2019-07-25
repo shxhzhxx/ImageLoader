@@ -1,9 +1,14 @@
 package com.shxhzhxx.app
 
 import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.shxhzhxx.imageloader.ImageLoader
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.android.synthetic.main.item_main.view.*
 
 
 private const val TAG = "MainActivity"
@@ -20,8 +25,27 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         loader.cancelAll()
         setContentView(R.layout.activity_main)
-        load.setOnClickListener {
-            loader.load(iv, u1)
+
+        val adapter = MyAdapter(loader)
+        list.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
+        list.adapter = adapter
+        swipe.setOnRefreshListener {
+            adapter.notifyDataSetChanged()
+            swipe.isRefreshing = false
         }
+    }
+}
+
+class MyAdapter(private val loader: ImageLoader) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
+            object : RecyclerView.ViewHolder(LayoutInflater.from(parent.context).inflate(R.layout.item_main, parent, false)) {}
+
+    override fun getItemCount() = 20
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        println("$position  load   ${holder.itemView.iv.hashCode()}")
+        loader.load(holder.itemView.iv, u1, onLoad = {
+            println("$position  onLoad")
+        })
     }
 }
