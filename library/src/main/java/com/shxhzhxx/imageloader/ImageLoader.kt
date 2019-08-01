@@ -129,7 +129,7 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
 
         override fun doInBackground() {
             val (w, h) = when {
-                width != null || height != null -> (width ?: 0) to (height ?: 0)
+                width != null && height != null -> width to height
                 else -> runBlocking(Dispatchers.Main) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
                         try {
@@ -145,7 +145,7 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
                     } else {
                         iv.waitForLaidOut(if (waitForLayout) 50 else 10)
                     }
-                    iv.width to iv.height
+                    (width ?: iv.width) to (height ?: iv.height)
                 }
             }
             val bitmap = bitmapLoader.syncLoad(path, { isCancelled }, w, h, centerCrop, roundingRadius)?.let {
