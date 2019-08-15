@@ -16,6 +16,7 @@ import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.InputStream
 import java.util.*
+import kotlin.math.max
 import kotlin.math.min
 
 const val ROUND_CIRCLE = -1
@@ -31,7 +32,7 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
     )
 
     val urlLoader = UrlLoader(fileCachePath, 50 * 1024 * 1024)
-    private val memoryCache = object : LruCache<Params, Bitmap>((Math.max(1, Runtime.getRuntime().maxMemory() / MEM_SCALE / 8)).toInt()) {
+    private val memoryCache = object : LruCache<Params, Bitmap>((max(1, Runtime.getRuntime().maxMemory() / MEM_SCALE / 8)).toInt()) {
         override fun sizeOf(key: Params, value: Bitmap) = value.byteCount / MEM_SCALE
     }
 
@@ -39,11 +40,11 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
      * @param path could be url, [File.getAbsolutePath] , [Uri.toString]
      * */
     @JvmOverloads
-    fun load(path: String, @IntRange(from = 0) width: Int = 0, @IntRange(from = 0) height: Int = 0, centerCrop: Boolean = true, roundingRadius: Int = 0, tag: Any? = null,
+    fun load(path: String, @IntRange(from = 0) width: Int = 0, @IntRange(from = 0) height: Int = 0, centerCrop: Boolean = true, roundingRadius: Int = 0, precisely: Boolean = false, tag: Any? = null,
              onLoad: ((Bitmap) -> Unit)? = null,
              onFailure: (() -> Unit)? = null,
              onCancel: (() -> Unit)? = null): Int {
-        val params = Params(path, width, height, centerCrop, roundingRadius)
+        val params = Params(path, width, height, centerCrop, roundingRadius, precisely)
         return asyncStart(params, { Worker(params) }, tag, Holder(onLoad, onFailure, onCancel)).also { id ->
             if (id < 0) {
                 onFailure?.invoke()
@@ -51,8 +52,8 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
         }
     }
 
-    fun syncLoad(path: String, canceled: () -> Boolean, @IntRange(from = 0) width: Int = 0, @IntRange(from = 0) height: Int = 0, centerCrop: Boolean = true, roundingRadius: Int = 0): Bitmap? {
-        val params = Params(path, width, height, centerCrop, roundingRadius)
+    fun syncLoad(path: String, canceled: () -> Boolean, @IntRange(from = 0) width: Int = 0, @IntRange(from = 0) height: Int = 0, centerCrop: Boolean = true, roundingRadius: Int = 0, precisely: Boolean = false): Bitmap? {
+        val params = Params(path, width, height, centerCrop, roundingRadius, precisely)
         return syncStart(params, { Worker(params) }, canceled)
     }
 
@@ -160,21 +161,24 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
             decodeStream(getInputStream(), opts)?.let { bitmap ->
                 val resizeFactor = listOf(dstWidth to bitmap.width, dstHeight to bitmap.height).filter { it.first > 0 && it.second > 0 }
                         .map { it.first.toFloat() / it.second }.min() ?: return@let bitmap
-                return@let if (resizeFactor == 1f) bitmap else {
+                return@let if (!params.precisely || resizeFactor == 1f) bitmap else {
                     Bitmap.createScaledBitmap(bitmap, (bitmap.width * resizeFactor).toInt(), (bitmap.height * resizeFactor).toInt(), true)
                 }
             }
         } else {
-            getInputStream().use {
+            getInputStream().use { inputStream ->
                 try {
                     val inSampleSize = out.toFloat() / dst
-                    val bitmap = BitmapRegionDecoder.newInstance(it, false).decodeRegion(Rect(
+                    val bitmap = BitmapRegionDecoder.newInstance(inputStream, false).decodeRegion(Rect(
                             ((opts.outWidth / 2 - dstWidth * inSampleSize / 2).toInt()),
                             ((opts.outHeight / 2 - dstHeight * inSampleSize / 2).toInt()),
                             ((opts.outWidth / 2 + dstWidth * inSampleSize / 2).toInt()),
                             ((opts.outHeight / 2 + dstHeight * inSampleSize / 2).toInt())), opts)
                             ?: return null
-                    Bitmap.createScaledBitmap(bitmap, dstWidth, dstHeight, true)
+
+                    val resizeFactor = listOf(dstWidth to bitmap.width, dstHeight to bitmap.height).find { it.first > 0 && it.second > 0 }
+                            ?.let { it.first.toFloat() / it.second } ?: return@use bitmap
+                    if (!params.precisely || resizeFactor == 1f) bitmap else Bitmap.createScaledBitmap(bitmap, dstWidth, dstHeight, true)
                 } catch (e: IOException) {
                     null
                 }
@@ -222,5 +226,5 @@ class BitmapLoader(private val contentResolver: ContentResolver, private val fil
     }
 }
 
-data class Params(val path: String, val width: Int, val height: Int, val centerCrop: Boolean, val roundingRadius: Int)
+data class Params(val path: String, val width: Int, val height: Int, val centerCrop: Boolean, val roundingRadius: Int, val precisely: Boolean)
 

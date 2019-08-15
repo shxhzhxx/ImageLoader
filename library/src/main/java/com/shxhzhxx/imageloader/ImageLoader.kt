@@ -148,7 +148,7 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
                     (width ?: iv.width) to (height ?: iv.height)
                 }
             }
-            val bitmap = bitmapLoader.syncLoad(path, { isCancelled }, w, h, centerCrop, roundingRadius)?.let {
+            val bitmap = bitmapLoader.syncLoad(path, { isCancelled }, w, h, centerCrop, roundingRadius, false)?.let {
                 transformation?.invoke(it) ?: it
             }
             postResult = if (bitmap != null) Runnable {
