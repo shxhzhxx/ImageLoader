@@ -132,16 +132,7 @@ class ImageLoader(contentResolver: ContentResolver, fileCachePath: File) : TaskM
                 width != null && height != null -> width to height
                 else -> runBlocking(Dispatchers.Main) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                        try {
-                            withTimeout(1000) { iv.waitForLayout() }
-                        } catch (timeout: TimeoutCancellationException) {
-                            /*
-                            * To prevent waitForLayout suspend forever,
-                            * wrap it in withTimeout and omit timeout exception
-                            *
-                            * https://issuetracker.google.com/issues/138310612
-                            * */
-                        }
+                        iv.waitForLayout()
                     } else {
                         iv.waitForLaidOut(if (waitForLayout) 50 else 10)
                     }
@@ -180,5 +171,14 @@ suspend fun View.waitForLaidOut(times: Int = 10) {
 
 @RequiresApi(Build.VERSION_CODES.KITKAT)
 suspend fun View.waitForLayout() {
-    while (!isLaidOut) yield()
+    try{
+        withTimeout(1000){ while (!isLaidOut) yield() }
+    } catch (timeout: TimeoutCancellationException){
+        /*
+        * To prevent waitForLayout suspend forever,
+        * wrap it in withTimeout and omit timeout exception
+        *
+        * https://issuetracker.google.com/issues/138310612
+        * */
+    }
 }
